@@ -15,8 +15,8 @@ using namespace std;
 
 #define NUM_OF_COLORS 5
 
-// If the circles will be filled or only the conture
-#define FILL 1
+//the max radius of the circle
+#define MAX_RADIUS 5
 
 static const int ledsMap[MAP_SIZE*MAP_SIZE] PROGMEM  = {
  -1,1,2,3,-1,-1,208,209,210,-1,-1,211,212,213,-1,-1,418,419,420,-1,-1,421,422,423,-1,
@@ -92,8 +92,27 @@ void draw_shape(circle c) {
   //  int r= 0;
 //    int l = 0;
    // radius = 3;
-    for (int r = 0 ; r < radius; ++r) {
-      for (int l = 0; l < radius - r; ++l) {               
+   int r = radius;
+   level = level - 1.0*level*radius/MAX_RADIUS;
+   Serial.println(level);
+   if (r == 0) {
+        pixels.setPixelColor(xy_to_pixel(y,x),getColor(color,level));    
+   } else if (r == 1) {
+        pixels.setPixelColor(xy_to_pixel(y+1,x),getColor(color,level));    
+        pixels.setPixelColor(xy_to_pixel(y-1,x),getColor(color,level));    
+        pixels.setPixelColor(xy_to_pixel(y,x+1),getColor(color,level));    
+        pixels.setPixelColor(xy_to_pixel(y,x-1),getColor(color,level));        
+   } else {
+    for (int i = -1 ; i<= 1 ; ++i) {
+      // draw the 3 dots lines that in the sides (up down left right)
+      pixels.setPixelColor(xy_to_pixel(y+i,x+radius),getColor(color,level));
+      pixels.setPixelColor(xy_to_pixel(y+i,x-radius),getColor(color,level));
+      pixels.setPixelColor(xy_to_pixel(y+radius,x+i),getColor(color,level));
+      pixels.setPixelColor(xy_to_pixel(y-radius,x+i),getColor(color,level));
+    }
+    
+    for (int r = 0 ; r <= radius; ++r) {
+    //  for (int l = 0; l < radius - r; ++l) {               
   /*      Serial.print("l r ");
         Serial.print(l);
         Serial.print(" ");
@@ -102,20 +121,17 @@ void draw_shape(circle c) {
         //pixels.setPixelColor(xy_to_pixel(y,x),getColor(color,level));        
         int ind = xy_to_pixel(y+r,x+l);        
         Serial.println(ind);
-        */
-        //pixels.setPixelColor(ind,getColor(color,level));
-        pixels.setPixelColor(xy_to_pixel(y+r,x+l),getColor(color,level));
-        pixels.setPixelColor(xy_to_pixel(y+r,x-l),getColor(color,level));
-        pixels.setPixelColor(xy_to_pixel(y-r,x+l),getColor(color,level));
-        pixels.setPixelColor(xy_to_pixel(y-r,x-l),getColor(color,level));
-
-        pixels.setPixelColor(xy_to_pixel(y+l,x+r),getColor(color,level));
-        pixels.setPixelColor(xy_to_pixel(y-l,x+r),getColor(color,level));
-        pixels.setPixelColor(xy_to_pixel(y+l,x-r),getColor(color,level));
-        pixels.setPixelColor(xy_to_pixel(y-l,x-r),getColor(color,level));
+        */        
+        // draw the diagonial lines
+        pixels.setPixelColor(xy_to_pixel(y+r,x+radius-r),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y+r,x-(radius-r)),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y-r,x+radius-r),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y-r,x-(radius-r)),getColor(color,level));
+        
                 
-      }              
+      //}              
     }
+   }
     
   }
   
@@ -132,12 +148,12 @@ void loop() {
 //  leds[0] = CRGB::Red; 
 //  FastLED.show(); 
 // circle(int x, int y, int start_radius, int shape_color, int color_level)
-  circle c(2,2,1,1,100);  
+  circle c(2,2,0,1,200);  
 
  // Serial.println(getColor(1,100));
  
   
-  while ( c.get_radius() < 5) {   
+  while ( c.get_radius() < MAX_RADIUS) {   
     clearAll();  
     draw_shape(c );    
     c.advance_radius(1);
