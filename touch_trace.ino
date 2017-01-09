@@ -3,7 +3,7 @@
 #include <StandardCplusplus.h>
 #include <vector>
 #include <iterator>
-
+#include <avr/pgmspace.h>
 
 using namespace std;
 
@@ -15,41 +15,46 @@ using namespace std;
 
 #define NUM_OF_COLORS 5
 
-static const int ledsMap[MAP_SIZE][MAP_SIZE] = {
- {-1,1,2,3,-1,-1,208,209,210,-1,-1,211,212,213,-1,-1,418,419,420,-1,-1,421,422,423,-1},
- {8,7,6,5,4,207,206,205,204,203,218,217,216,215,214,417,416,415,414,413,428,427,426,425,424},
- {9,10,11,12,13,198,199,200,201,202,219,220,221,222,223,408,409,410,411,412,429,430,431,432,433},
- {18,17,16,15,14,197,196,195,194,193,228,227,226,225,224,407,406,405,404,403,438,437,436,435,434},
- {-1,19,20,21,-1,-1,190,191,192,-1,-1,229,230,231,-1,-1,400,401,402,-1,-1,439,440,441,-1},
- {-1,24,23,22,-1,-1,189,188,187,-1,-1,234,233,232,-1,-1,399,398,397,-1,-1,444,443,442,-1},
- {25,26,27,28,29,182,183,184,185,186,235,236,237,238,239,392,393,394,395,396,445,446,447,448,449},
- {34,33,32,31,30,181,180,179,178,177,244,243,242,241,240,391,390,389,388,387,454,453,452,451,450},
- {35,36,37,38,39,172,173,174,175,176,245,246,247,248,249,382,383,384,385,386,455,456,457,458,459},
- {-1,42,41,40,-1,-1,171,170,169,-1,-1,252,251,250,-1,-1,381,380,379,-1,-1,462,461,460,-1},
- {-1,43,44,45,-1,-1,166,167,168,-1,-1,253,254,255,-1,-1,376,377,378,-1,-1,463,464,465,-1},
- {50,49,48,47,46,165,164,163,162,161,260,259,258,257,256,375,374,373,372,371,470,469,468,467,466},
- {51,52,53,54,55,156,157,158,159,160,261,262,263,264,265,366,367,368,369,370,471,472,473,474,475},
- {60,59,58,57,56,155,154,153,152,151,270,269,268,267,266,365,364,363,362,361,480,479,478,477,476},
- {-1,61,62,63,-1,-1,148,149,150,-1,-1,271,272,273,-1,-1,358,359,360,-1,-1,481,482,483,-1},
- {-1,66,65,64,-1,-1,147,146,145,-1,-1,276,275,274,-1,-1,357,356,355,-1,-1,486,485,484,-1},
- {67,68,69,70,71,140,141,142,143,144,277,278,279,280,281,350,351,352,353,354,487,488,489,490,491},
- {76,75,74,73,72,139,138,137,136,135,286,285,284,283,282,349,348,347,346,345,496,495,494,493,492},
- {77,78,79,80,81,130,131,132,133,134,287,288,289,290,291,340,341,342,343,344,497,498,499,500,501},
- {-1,84,83,82,-1,-1,129,128,127,-1,-1,294,293,292,-1,-1,339,338,337,-1,-1,504,503,502,-1},
- {-1,85,86,87,-1,-1,124,125,126,-1,-1,295,296,297,-1,-1,334,335,336,-1,-1,505,506,507,-1},
- {92,91,90,89,88,123,122,121,120,119,302,301,300,299,298,333,332,331,330,329,512,511,510,509,508},
- {93,94,95,96,97,114,115,116,117,118,303,304,305,306,307,324,325,326,327,328,513,514,515,516,517},
- {102,101,100,99,98,113,112,111,110,109,312,311,310,309,308,323,322,321,320,319,522,51,520,519,518},
- {-1,103,104,105,-1,-1,106,107,108,-1,-1,313,314,315,-1,-1,316,317,318,-1,-1,523,524,525,-1}
+// If the circles will be filled or only the conture
+#define FILL 1
+
+static const int ledsMap[MAP_SIZE*MAP_SIZE] PROGMEM  = {
+ -1,1,2,3,-1,-1,208,209,210,-1,-1,211,212,213,-1,-1,418,419,420,-1,-1,421,422,423,-1,
+ 8,7,6,5,4,207,206,205,204,203,218,217,216,215,214,417,416,415,414,413,428,427,426,425,424,
+ 9,10,11,12,13,198,199,200,201,202,219,220,221,222,223,408,409,410,411,412,429,430,431,432,433,
+ 18,17,16,15,14,197,196,195,194,193,228,227,226,225,224,407,406,405,404,403,438,437,436,435,434,
+ -1,19,20,21,-1,-1,190,191,192,-1,-1,229,230,231,-1,-1,400,401,402,-1,-1,439,440,441,-1,
+ -1,24,23,22,-1,-1,189,188,187,-1,-1,234,233,232,-1,-1,399,398,397,-1,-1,444,443,442,-1,
+ 25,26,27,28,29,182,183,184,185,186,235,236,237,238,239,392,393,394,395,396,445,446,447,448,449,
+ 34,33,32,31,30,181,180,179,178,177,244,243,242,241,240,391,390,389,388,387,454,453,452,451,450,
+ 35,36,37,38,39,172,173,174,175,176,245,246,247,248,249,382,383,384,385,386,455,456,457,458,459,
+ -1,42,41,40,-1,-1,171,170,169,-1,-1,252,251,250,-1,-1,381,380,379,-1,-1,462,461,460,-1,
+ -1,43,44,45,-1,-1,166,167,168,-1,-1,253,254,255,-1,-1,376,377,378,-1,-1,463,464,465,-1,
+ 50,49,48,47,46,165,164,163,162,161,260,259,258,257,256,375,374,373,372,371,470,469,468,467,466,
+ 51,52,53,54,55,156,157,158,159,160,261,262,263,264,265,366,367,368,369,370,471,472,473,474,475,
+ 60,59,58,57,56,155,154,153,152,151,270,269,268,267,266,365,364,363,362,361,480,479,478,477,476,
+ -1,61,62,63,-1,-1,148,149,150,-1,-1,271,272,273,-1,-1,358,359,360,-1,-1,481,482,483,-1,
+ -1,66,65,64,-1,-1,147,146,145,-1,-1,276,275,274,-1,-1,357,356,355,-1,-1,486,485,484,-1,
+ 67,68,69,70,71,140,141,142,143,144,277,278,279,280,281,350,351,352,353,354,487,488,489,490,491,
+ 76,75,74,73,72,139,138,137,136,135,286,285,284,283,282,349,348,347,346,345,496,495,494,493,492,
+ 77,78,79,80,81,130,131,132,133,134,287,288,289,290,291,340,341,342,343,344,497,498,499,500,501,
+ -1,84,83,82,-1,-1,129,128,127,-1,-1,294,293,292,-1,-1,339,338,337,-1,-1,504,503,502,-1,
+ -1,85,86,87,-1,-1,124,125,126,-1,-1,295,296,297,-1,-1,334,335,336,-1,-1,505,506,507,-1,
+ 92,91,90,89,88,123,122,121,120,119,302,301,300,299,298,333,332,331,330,329,512,511,510,509,508,
+ 93,94,95,96,97,114,115,116,117,118,303,304,305,306,307,324,325,326,327,328,513,514,515,516,517,
+ 102,101,100,99,98,113,112,111,110,109,312,311,310,309,308,323,322,321,320,319,522,51,520,519,518,
+ -1,103,104,105,-1,-1,106,107,108,-1,-1,313,314,315,-1,-1,316,317,318,-1,-1,523,524,525,-1
 };
 
 
 //CRGB leds[NUM_OF_LEDS];
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_OF_LEDS, LEDS_PIN, NEO_GRB + NEO_KHZ800);
-
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_OF_LEDS + 1, LEDS_PIN, NEO_GRB + NEO_KHZ800);
+// prototypes
 uint32_t getColor(byte color, byte user_power);
 void clearAll();
 void draw_shape(int x, int y, int radius,int color,int level); 
+int xy_to_pixel (int y,int x);
+//
 class circle 
 {
   int radius;  
@@ -69,7 +74,6 @@ class circle
   int get_color() {return color;}
   int get_level() {return level;}
   
-
   circle(int x, int y, int start_radius, int shape_color, int color_level) {
     center_x = x;
     center_y = y;
@@ -78,44 +82,38 @@ class circle
     level = color_level;
   }
 };
-  void draw_shape(circle c) {
+void draw_shape(circle c) {
     int x = c.get_x();
     int y = c.get_y();
     int color = c.get_color();
     int level = c.get_level();
     int radius = c.get_radius();
-//      pixels.setPixelColor(ledsMap[y][x],getColor(color,level));        
-    
-    int r =0;
-    int l = 0 ;
-    for (int r = 0 ; r <2; ++r) {
-      Serial.print("r ");                   
-      Serial.println(r);
-      pixels.setPixelColor(ledsMap[y+r][x+l],getColor(color,level));      
-      //pixels.setPixelColor(ledsMap[y+r+1][x+l],getColor(color,level));
-    }
-    
+ 
+  //  int r= 0;
+//    int l = 0;
+   // radius = 3;
     for (int r = 0 ; r < radius; ++r) {
-      for (int l = 0; l < radius - r; ++l) {       
-//        Serial.print("r ");                   
-        //Serial.println(r);
-        //Serial.print("l ");                   
-        //Serial.println(l);
-        //Serial.print("led ");                   
-        //Serial.println(ledsMap[y+r][x+l]);
-        //pixels.setPixelColor(ledsMap[y][x],getColor(color,level));        
-        //pixels.setPixelColor(ledsMap[y+1][x+1],getColor(color,level));
-        
-        //pixels.setPixelColor(ledsMap[y+r][x+l],getColor(color,level));        
-        /*
-        pixels.setPixelColor(ledsMap[y+r][x-l],getColor(color,level));        
-        pixels.setPixelColor(ledsMap[y-r][x+l],getColor(color,level));        
-        pixels.setPixelColor(ledsMap[y-r][x-l],getColor(color,level));        
+      for (int l = 0; l < radius - r; ++l) {               
+  /*      Serial.print("l r ");
+        Serial.print(l);
+        Serial.print(" ");
+        Serial.print(r);
+        Serial.println(" ");        
+        //pixels.setPixelColor(xy_to_pixel(y,x),getColor(color,level));        
+        int ind = xy_to_pixel(y+r,x+l);        
+        Serial.println(ind);
+        */
+        //pixels.setPixelColor(ind,getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y+r,x+l),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y+r,x-l),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y-r,x+l),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y-r,x-l),getColor(color,level));
 
-        pixels.setPixelColor(ledsMap[y+l][x+r],getColor(color,level));        
-        pixels.setPixelColor(ledsMap[y-l][x+r],getColor(color,level));        
-        pixels.setPixelColor(ledsMap[y+l][x-r],getColor(color,level));        
-        pixels.setPixelColor(ledsMap[y-l][x-r],getColor(color,level));        */
+        pixels.setPixelColor(xy_to_pixel(y+l,x+r),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y-l,x+r),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y+l,x-r),getColor(color,level));
+        pixels.setPixelColor(xy_to_pixel(y-l,x-r),getColor(color,level));
+                
       }              
     }
     
@@ -133,24 +131,21 @@ void setup() {
 void loop() {
 //  leds[0] = CRGB::Red; 
 //  FastLED.show(); 
-  circle c(2,0,4,1,100);  
-//  Serial.println(ledsMap[0][2]);
+// circle(int x, int y, int start_radius, int shape_color, int color_level)
+  circle c(2,2,1,1,100);  
+
  // Serial.println(getColor(1,100));
- // pixels.setPixelColor(ledsMap[0][2],pixels.Color(100, 0, 0));        
-//  pixels.show();
-//  delay(1000);
+ 
   
-//  while ( c.get_radius() < 5) {   
- //   clearAll();  
-    draw_shape(c);
-    //int a = ledsMap[0][2];
-    
-    
-  //  c.advance_radius(1);
+  while ( c.get_radius() < 5) {   
+    clearAll();  
+    draw_shape(c );    
+    c.advance_radius(1);
  //   Serial.println(c.get_radius());
     pixels.show();
     delay(300); 
-//  }
+  }
+
   
   
 }
@@ -194,5 +189,30 @@ uint32_t getColor(byte color, byte user_power) {
      power=1.0*color/(NUM_OF_COLORS/3)*255;
      return pixels.Color(level*power, level*(255 - power), 0);
   }
+}
+
+//----------------------------
+//  xy_to_pixel
+//----------------------------
+int xy_to_pixel (int y,int x) {
+  int inx = y*MAP_SIZE+x;
+  int led = pgm_read_word(&ledsMap[inx]) - 1;
+  /*Serial.print("xy_to_pixel ");
+  Serial.print(y);
+  Serial.print(" ");
+  Serial.print(x);
+  Serial.print(" ");
+
+  Serial.print("inx ");
+  Serial.print(inx );
+  Serial.print(" ");
+  Serial.println(led);
+  */
+  if (x < MAP_SIZE && y < MAP_SIZE && led > -1) {       
+    return  led ;
+  } else {
+    return NUM_OF_LEDS;
+  }
+  
 }
 
