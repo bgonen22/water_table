@@ -9,18 +9,14 @@ using namespace std;
 
 #define NUM_OF_LEDS 525
 
-#define MAP_SIZE 25
-
 #define LEDS_PIN 6
 
 // delay between iterations
-#define DELAY 1000 
+#define DELAY 100 
 
-#define NUM_OF_COLORS 10
+#define NUM_OF_COLORS 25
 // each iteration the color will jump in this value (0 for on color circle)
-#define COLOR_JUMP 2
-// the circle will have 2 circle_width one outside and one inside 
-#define CIRCLE_WIDTH 1
+#define COLOR_JUMP 1
 
 //the max radius of the circle
 #define MAX_RADIUS 5
@@ -29,6 +25,8 @@ using namespace std;
 #define MAX_LEVEL 255
 // unconneted pin for randomize seed
 #define UNCONNECTED_PIN 0
+
+#define MAP_SIZE 25
 static const int ledsMap[MAP_SIZE*MAP_SIZE] PROGMEM  = {
  -1,1,2,3,-1,-1,208,209,210,-1,-1,211,212,213,-1,-1,418,419,420,-1,-1,421,422,423,-1,
  8,7,6,5,4,207,206,205,204,203,218,217,216,215,214,417,416,415,414,413,428,427,426,425,424,
@@ -72,6 +70,26 @@ class circle
   int y;
   int color;
   int level;
+
+  //int length_of_pixel_array = MAX_RADIUS*16;
+
+  // --------------------------
+  // set_pixel_level
+  // --------------------------
+  void set_pixel_level (/*int * pixel_level,*/int y,int x,int precent) {
+    int pixel = xy_to_pixel(y,x);
+    //if (pixel > length_of_pixel_array) { return;}
+    int l = (level - (level*1.0*radius/MAX_RADIUS)) * precent/100;
+    pixels.setPixelColor(pixel, getColor(color,l));
+    //pixel_level[pixel] += precent;  
+    //if (pixel_level[pixel] > 100) { pixel_level[pixel] = 100;}
+   // Serial.print(pixel);     
+    //Serial.print(" ");
+    //Serial.println(l);         
+    
+  }
+  
+  
   public:
   void advance_radius(int add) {
     //Serial.println(radius);
@@ -84,6 +102,42 @@ class circle
   //int get_color() {return color;}
   //int get_level() {return level;}
   void advance_color (int jump) { color = (color +jump)%NUM_OF_COLORS;}
+  
+  
+
+  void draw_shape() {
+   
+    //int pixel_level[length_of_pixel_array];    
+    //memset(pixel_level,0,sizeof(pixel_level));
+    for (int coord1 = 0 ; coord1 <= radius; ++coord1) {
+      float coord2;      
+      coord2 = sqrt(pow(radius,2)-pow(coord1,2));             
+      int lower = (int)coord2;
+      int mantisa = 100*( coord2 - lower);
+      set_pixel_level (y+coord1,x+lower,100- mantisa);
+      set_pixel_level (y+coord1,x-lower,100- mantisa);
+      set_pixel_level (y-coord1,x+lower,100- mantisa);
+      set_pixel_level (y-coord1,x-lower,100- mantisa);
+
+      set_pixel_level (y+lower,x+coord1,100- mantisa);
+      set_pixel_level (y+lower,x-coord1,100- mantisa);
+      set_pixel_level (y-lower,x+coord1,100- mantisa);
+      set_pixel_level (y-lower,x-coord1,100- mantisa);
+      if (mantisa > 0) { 
+        set_pixel_level (y+coord1,x+lower+1,mantisa);
+        set_pixel_level (y+coord1,x-lower-1,mantisa);
+        set_pixel_level (y-coord1,x+lower+1,mantisa);
+        set_pixel_level (y-coord1,x-lower-1,mantisa);
+
+        set_pixel_level (y+lower,x+coord1+1,mantisa);
+        set_pixel_level (y+lower,x-coord1-1,mantisa);
+        set_pixel_level (y-lower,x+coord1+1,mantisa);
+        set_pixel_level (y-lower,x-coord1-1,mantisa);
+      }   
+    }     
+    
+  } //draw_shape
+
   circle(int _x, int _y, int start_radius, int shape_color, int color_level) {
     x = _x;
     y = _y;
@@ -91,64 +145,6 @@ class circle
     color = shape_color;
     level = color_level;
   }
-
-  void draw_shape() {
-   // int x = c.get_x();
-    //int y = c.get_y();
-    //int color = c.get_color();
-    //int level = c.get_level();
-    //int radius = c.get_radius();
- 
-
-   int r;
-  // level = 10;
-   for (r = radius - CIRCLE_WIDTH ; r <= radius + CIRCLE_WIDTH; ++r) { 
-       int l = (level-level* 1.0*r/MAX_RADIUS) - 0.5*(r != radius) ;
-/*   Serial.print("level ");
-   Serial.println(l);
-   Serial.print("radius ");
-   Serial.println(r);
-  */ 
-    if (r < 0) { continue;}   
-    if (r == 0) {
-          pixels.setPixelColor(xy_to_pixel(y,x),getColor(color,l));    
-    } else if (r == 1) {    
-          pixels.setPixelColor(xy_to_pixel(y+1,x),getColor(color,l));    
-          pixels.setPixelColor(xy_to_pixel(y-1,x),getColor(color,l));    
-          pixels.setPixelColor(xy_to_pixel(y,x+1),getColor(color,l));    
-          pixels.setPixelColor(xy_to_pixel(y,x-1),getColor(color,l));        
-    } else {
-      int line;
-      int start_r;
-      int step_add;
-      if (r < 5) { 
-        line = 2;
-        start_r = 2;
-        step_add = 1;
-      } else {
-        line = 1;
-        start_r = 3;
-        step_add = 2;
-      }
-      for (int i = -line ; i<= line ; ++i) {
-        // draw the 3/5 dots lines that in the sides (up down left right)
-        pixels.setPixelColor(xy_to_pixel(y+i,x+radius),getColor(color,l));
-        pixels.setPixelColor(xy_to_pixel(y+i,x-radius),getColor(color,l));
-        pixels.setPixelColor(xy_to_pixel(y+radius,x+i),getColor(color,l));
-        pixels.setPixelColor(xy_to_pixel(y-radius,x+i),getColor(color,l));
-      }   
-      
-      for (int r = start_r ; r < radius; ++r) {
-          // draw the diagonial lines
-          pixels.setPixelColor(xy_to_pixel(y+r,x+(radius-r+step_add)),getColor(color,l));
-          pixels.setPixelColor(xy_to_pixel(y+r,x-(radius-r+step_add)),getColor(color,l));
-          pixels.setPixelColor(xy_to_pixel(y-r,x+(radius-r+step_add)),getColor(color,l));
-          pixels.setPixelColor(xy_to_pixel(y-r,x-(radius-r+step_add)),getColor(color,l));    
-      }
-    }
-   } // for (r = radius - CIRCLE_WIDTH ; r <= radius + CIRCLE_WIDTH; ++r) { 
-  
-  } //draw_shape
 };
 vector<circle> circle_vec;  
 void setup() {
@@ -164,16 +160,16 @@ void setup() {
 void loop() {
 //  leds[0] = CRGB::Red; 
 //  FastLED.show(); 
-  circle *c;
+  //circle *c;
   long rand_color;  
   rand_color = random (0,NUM_OF_COLORS+1);
 // circle(int x, int y, int start_radius, int shape_color, int color_level)
-  c = new circle(2,2,0,rand_color,MAX_LEVEL);  
+  circle c(2,2,0,rand_color,MAX_LEVEL);  
   
-  circle_vec.push_back(*c);
-  delete c;
+  circle_vec.push_back(c);
+  //delete c;
   vector<circle>::iterator it = circle_vec.begin();
-  it = c;
+  it = &c;
   while (1) {
  // Serial.println(getColor(1,100));
   clearAll();  
@@ -185,7 +181,7 @@ void loop() {
       it->draw_shape();    
       it->advance_radius(1);
       it->advance_color(COLOR_JUMP);
-      Serial.println(" ");    
+      Serial.println(" ");
 //      Serial.println(it->get_radius());    
   
     } else {    
