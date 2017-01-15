@@ -321,7 +321,7 @@ int handleKeypress ()
       }  // end of if this bit changed
     
     } // end of for each button
-  
+  return 5;
 }  // end of handleKeypress
 
 volatile unsigned long i;
@@ -352,6 +352,8 @@ void loop ()
 // circle(int x, int y, int start_radius, int shape_color, int color_level)
       int button = handleKeypress ();
       int x,y;
+      Serial.print("button ");
+      Serial.println(button);
       switch (button) {
         case 0: {y=0;x=1;}  
         break;
