@@ -26,6 +26,9 @@ using namespace std;
 // unconneted pin for randomize seed
 #define UNCONNECTED_PIN 0
 
+// max number of parallel circles
+#define VECTOR_SIZE 1
+
 #define MAP_SIZE 25
 static const int ledsMap[MAP_SIZE*MAP_SIZE] PROGMEM  = {
  -1,1,2,3,-1,-1,208,209,210,-1,-1,211,212,213,-1,-1,418,419,420,-1,-1,421,422,423,-1,
@@ -63,6 +66,8 @@ uint32_t getColor(byte color, byte user_power);
 void clearAll();
 int xy_to_pixel (int y,int x);
 //
+
+
 class circle 
 {
   int radius;  
@@ -72,20 +77,25 @@ class circle
   int level;
 
   //int length_of_pixel_array = MAX_RADIUS*16;
-
   // --------------------------
   // set_pixel_level
   // --------------------------
-  void set_pixel_level (/*int * pixel_level,*/int y,int x,int precent) {
+  void set_pixel_level (int y,int x,int precent) {
     int pixel = xy_to_pixel(y,x);
     //if (pixel > length_of_pixel_array) { return;}
     int l = (level - (level*1.0*radius/MAX_RADIUS)) * precent/100;
     pixels.setPixelColor(pixel, getColor(color,l));
     //pixel_level[pixel] += precent;  
     //if (pixel_level[pixel] > 100) { pixel_level[pixel] = 100;}
-   // Serial.print(pixel);     
-    //Serial.print(" ");
-    //Serial.println(l);         
+    Serial.print("x y ");
+    Serial.print(x);     
+    Serial.print(" ");
+    Serial.print(y);  
+    Serial.print(" pixel ");                
+    Serial.print(pixel);     
+    Serial.print(" ");
+    Serial.println(l);
+      
     
   }
   
@@ -108,8 +118,10 @@ class circle
   void draw_shape() {
    
     //int pixel_level[length_of_pixel_array];    
-    //memset(pixel_level,0,sizeof(pixel_level));
-    for (int coord1 = 0 ; coord1 <= radius; ++coord1) {
+    //memset(pixel_level,0,sizeof(pixel_level));    
+    for (int coord1 = 0 ; coord1 <= radius; coord1 = coord1+1) {
+      //Serial.print("coord1 ");
+      //Serial.println(coord1);
       float coord2;      
       coord2 = sqrt(pow(radius,2)-pow(coord1,2));             
       int lower = (int)coord2;
@@ -134,10 +146,11 @@ class circle
         set_pixel_level (y-lower,x+coord1+1,mantisa);
         set_pixel_level (y-lower,x-coord1-1,mantisa);
       }   
-    }     
+    }    
+     
     
   } //draw_shape
-
+  circle () : x(0),y(0),radius(0),color(0),level(0) {};
   circle(int _x, int _y, int start_radius, int shape_color, int color_level) {
     x = _x;
     y = _y;
@@ -146,7 +159,40 @@ class circle
     level = color_level;
   }
 };
-vector<circle> circle_vec;  
+
+// --------------- C_VECTOR ------------------
+class c_vector
+{
+  int v_start;
+  int v_end;
+  circle c_vec[VECTOR_SIZE];
+  public:
+  /*
+  void push_back(circle c) {
+    int end_next = (v_end+1)%VECTOR_SIZE;
+   // if (end_next == v_start) { return;}
+    c_vec[v_end] = c;
+    v_end = end_next;    
+  }
+
+  void pop() {
+    if (v_end == v_start) { return;}
+    v_start = (v_start+1)%VECTOR_SIZE;        
+  }
+  circle * start() {
+    return &c_vec[v_start];
+  }
+ 
+  c_vector () {
+    v_start = 0;
+    v_end = 0;        
+  }
+  */
+}; // end c_vetor
+// ---------------------------------------------
+
+//vector<circle> circle_vec;  
+c_vector circle_vec;
 void setup() {
   Serial.begin(9600);
   randomSeed(analogRead(UNCONNECTED_PIN));
@@ -158,21 +204,32 @@ void setup() {
 }
 
 void loop() {
+  /*
 //  leds[0] = CRGB::Red; 
 //  FastLED.show(); 
   //circle *c;
   long rand_color;  
   rand_color = random (0,NUM_OF_COLORS+1);
+  
 // circle(int x, int y, int start_radius, int shape_color, int color_level)
   circle c(2,2,0,rand_color,MAX_LEVEL);  
-  
+  //Serial.println(c.get_radius());
+  //c.advance_radius(1);
+  //Serial.println(c.get_radius());
   circle_vec.push_back(c);
   //delete c;
-  vector<circle>::iterator it = circle_vec.begin();
-  it = &c;
+ // vector<circle>::iterator it = circle_vec.begin();  
+ circle * it = circle_vec.start();
+  //Serial.println(it ->get_radius());
+  //it->advance_radius(1);
+  //Serial.println(it ->get_radius());
+  //it = &c;
+  */
   while (1) {
+    /*
  // Serial.println(getColor(1,100));
   clearAll();  
+           
   
   //for (vector<circle>::iterator it = circle_vec.begin(); it != circle_vec.end(); ++ it) {
     
@@ -181,13 +238,15 @@ void loop() {
       it->draw_shape();    
       it->advance_radius(1);
       it->advance_color(COLOR_JUMP);
-      Serial.println(" ");
-//      Serial.println(it->get_radius());    
+  //    Serial.println(" ");
+      Serial.println(it->get_radius());    
   
     } else {    
       //it = circle_vec.erase(it);          
       it->advance_radius(-MAX_RADIUS);
     }
+    */
+     pixels.setPixelColor(3, getColor(1,200));
     pixels.show();
     delay(DELAY); 
     
@@ -216,7 +275,7 @@ void clearAll() {
 //----------------------------
 // Input a value 0 to NUM_OF_COLORS to get a color value.
 // The colours are a transition r - g - b - back to r.
-// the level is how brigt will be tghe light (0 to 255).
+// the level is how brigt will be the light (0 to 255).
 uint32_t getColor(byte color, byte user_power) {
   if (user_power==0) return pixels.Color(0, 0, 0); 
   float power;
