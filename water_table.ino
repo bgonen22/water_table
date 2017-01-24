@@ -259,7 +259,9 @@ void loop() {
  // Serial.println(getColor(1,100));
   clearAll();  
   if (interrupt_flag) {
-    circle c(2,2,0,rand_color,MAX_LEVEL);      
+    int x = random(0,4);
+    int y = random(0,24);
+    circle c(x,y,0,rand_color,MAX_LEVEL);      
     circle_vec.push_back(c);
     interrupt_flag = 0;    
   }
