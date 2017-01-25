@@ -19,7 +19,7 @@
 #define LEDS_PIN 6
 
 // delay between iterations
-#define DELAY 1000 
+#define DELAY 500 
 
 #define NUM_OF_COLORS 25
 // each iteration the color will jump in this value (0 for on color circle)
@@ -200,6 +200,7 @@ class c_vector
   }
   circle * start() {
     current_i = v_start;
+    if (current_i == v_end) { return NULL;}
     return &c_vec[v_start];
   }
   circle * next() {
@@ -231,39 +232,21 @@ void setup() {
   pinMode(PinInt, INPUT);   
   attachInterrupt(PinInt, OnInterupt, FALLING); // interrrupt 1 is data ready
 }
-
+circle * it;
 void loop() {
   
-//  leds[0] = CRGB::Red; 
-//  FastLED.show(); 
-  //circle *c;
-  long rand_color;  
-  rand_color = random (0,NUM_OF_COLORS+1);
-  
-// circle(int x, int y, int start_radius, int shape_color, int color_level)
-  //circle c(2,2,0,rand_color,MAX_LEVEL);  
-  //Serial.println(c.get_radius());
-  //c.advance_radius(1);
-  //Serial.println(c.get_radius());
- // circle_vec.push_back(c);
-  //delete c;
-  //vector<circle>::iterator it = circle_vec.begin();  
-   //circle * it = circle_vec.start();
-  //Serial.println(it ->get_radius());
-  //it->advance_radius(1);
-  //Serial.println(it ->get_radius());
-  //it = &c;
-  circle * it;
-  while (1) {
+ // while (1) {
  
  // Serial.println(getColor(1,100));
   clearAll();  
   if (interrupt_flag) {
     int x = random(0,4);
-    int y = random(0,24);
+    int y = random(0,24);    
+    long rand_color = random (0,NUM_OF_COLORS+1);
     circle c(x,y,0,rand_color,MAX_LEVEL);      
     circle_vec.push_back(c);
     interrupt_flag = 0;    
+    Serial.println("interrupt!");    
   }
            
   
@@ -271,24 +254,24 @@ void loop() {
     for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
       if ( it ->get_radius() < MAX_RADIUS) {
     
-      it->draw_shape();    
-      it->advance_radius(1);
-      it->advance_color(COLOR_JUMP);
-    //  Serial.println(" ");
-      Serial.println(it->get_radius());    
+        it->draw_shape();    
+        it->advance_radius(1);
+        it->advance_color(COLOR_JUMP);
+        //  Serial.println(" ");
+        Serial.println(it->get_radius());    
   
-    } else {   
-      circle_vec.pop();      
-      //it = circle_vec.erase(it);          
-     // it->advance_radius(-MAX_RADIUS);
-    }
+      } else {   
+         circle_vec.pop();      
+        //it = circle_vec.erase(it);          
+      // it->advance_radius(-MAX_RADIUS);
+      }
         
-    pixels.show();
-    delay(DELAY);     
+      pixels.show();
+      delay(DELAY);     
       
     }
     
-  } // end while(1)  
+//  } // end while(1)  
 
   
   
@@ -297,14 +280,11 @@ void loop() {
 //  clearAll
 //----------------------------
 void clearAll() {
-  Serial.println("clearAll");
-//  if (trace_vec.size() == 0) {
- //   return;  
-//  }
+  //Serial.println("clearAll");
   for (int i = 0; i< NUM_OF_LEDS; ++i) {
     pixels.setPixelColor(i,0);
   }
-  Serial.println("exit clearAll");
+  //Serial.println("exit clearAll");
 
 }
 
