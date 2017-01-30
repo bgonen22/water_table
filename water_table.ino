@@ -356,10 +356,10 @@ void loop() {
       if ( it ->get_radius() < MAX_RADIUS) {
     
         it->draw_shape();    
-        it->advance_radius(1./50);
+        it->advance_radius(0.02);
         float r = it ->get_radius();
-        if (r - (int)r == 0 ) { 
-          it->advance_color(COLOR_JUMP);
+        if (r - (int)r == 0) { 
+          it->advance_color(COLOR_JUMP); // when the radius advanced in int value, adbvance the color
         }
         //  Serial.println(" ");
         Serial.println(it->get_radius());    
