@@ -138,7 +138,7 @@ void OnInterupt();
 void handleKeypress();
 //
 
-Adafruit_MCP23017 mcp;
+//Adafruit_MCP23017 mcp;
 
 class circle 
 {
@@ -153,7 +153,12 @@ class circle
   // --------------------------
   void set_pixel_level (int y,int x,int precent, int * pixel_precent) {
     int pixel = xy_to_pixel(y,x);
-    if (pixel_precent[pixel] > precent) { return;} // not overide pixel that got more intese form other calc
+    //Serial.print("pixel_precent[pixel] "); Serial.print(pixel_precent[pixel]); Serial.print(" precent: "); Serial.println(precent);
+    
+    if (pixel_precent[pixel] > precent) {
+      //Serial.print("pixel ");Serial.print(pixel);Serial.print(" pixel_precent ");Serial.print( pixel_precent[pixel] );Serial.print(" precent ");Serial.println(precent);
+      return;// not overide pixel that got more intese form other calc
+    } 
     
     pixel_precent[pixel] = precent;
      //if (pixel > length_of_pixel_array) { return;}
@@ -161,7 +166,8 @@ class circle
     pixels.setPixelColor(pixel, getColor(color,l));
     //pixel_level[pixel] += precent;  
     //if (pixel_level[pixel] > 100) { pixel_level[pixel] = 100;}
-  /*   Serial.print("x y ");
+    /*
+     Serial.print("x y ");
     Serial.print(x);     
     Serial.print(" ");
     Serial.print(y);  
@@ -169,7 +175,7 @@ class circle
     Serial.print(pixel);     
     Serial.print(" ");
     Serial.println(l);
-   */   
+    */
     
   }
   
@@ -191,21 +197,24 @@ class circle
 
   void draw_shape() {
     int pixel_precent[NUM_OF_LEDS];
-    //int pixel_level[length_of_pixel_array];    
-    //memset(pixel_level,0,sizeof(pixel_level));    
-    for (int coord1 = 0 ; coord1 <= radius; coord1 = coord1+1) {
-      //Serial.print("coord1 ");
-      //Serial.println(coord1);
+    memset(pixel_precent,0,sizeof(pixel_precent));
+        
+    for (int coord1 = 0 ; coord1 <= radius; coord1 = coord1+1) {      
       float coord2;      
       coord2 = sqrt(pow(radius,2)-pow(coord1,2));             
       int lower = (int)coord2;
       int mantisa = 100*( coord2 - lower);
+      /*
+      Serial.print("coord1 "); Serial.println(coord1);
+      Serial.print("coord2 "); Serial.println(coord2);
+      Serial.print("lower "); Serial.println(lower);
+      Serial.print("mantisa "); Serial.println(mantisa);
+      */
       set_pixel_level (y+coord1,x+lower,100- mantisa,pixel_precent);
       set_pixel_level (y+coord1,x-lower,100- mantisa,pixel_precent);
       set_pixel_level (y-coord1,x+lower,100- mantisa,pixel_precent);
       set_pixel_level (y-coord1,x-lower,100- mantisa,pixel_precent);
-
-      set_pixel_level (y+lower,x+coord1,100- mantisa,pixel_precent);
+      set_pixel_level (y+lower,x+coord1,100- mantisa,pixel_precent);      
       set_pixel_level (y+lower,x-coord1,100- mantisa,pixel_precent);
       set_pixel_level (y-lower,x+coord1,100- mantisa,pixel_precent);
       set_pixel_level (y-lower,x-coord1,100- mantisa,pixel_precent);
@@ -283,17 +292,17 @@ volatile int interrupt_flag=0;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
 void setup() {
-  Wire.begin ();  
+//  Wire.begin ();  
   Serial.begin(9600);
   randomSeed(analogRead(UNCONNECTED_PIN));  
 //  FastLED.addLeds<NEOPIXEL, LEDS_PIN>(leds, NUM_OF_LEDS);
   pixels.begin();
-  mcp.begin();      // use default address 0
+//  mcp.begin();      // use default address 0
    
   // We mirror INTA and INTB, so that only one line is required between MCP and Arduino for int reporting
   // The INTA/B will not be Floating 
   // INTs will be signaled with a LOW
-  mcp.setupInterrupts(true,false,LOW);
+//  mcp.setupInterrupts(true,false,LOW);
 
   // configuration for a button on port A
   // interrupt will triger when the pin is taken to ground by a pushbutton
@@ -302,20 +311,20 @@ void setup() {
   //mcp.setupInterruptPin(mcpPinA,FALLING); 
 
   // Set GPI Pins 1-16 to Inputs Pulled High, change of state triggers Interrupt
-  for (int pin = 0; pin < 16; pin++)  {  
-    mcp.pinMode(pin, INPUT);    
-    mcp.pullUp(pin,HIGH); 
-    mcp.setupInterruptPin(pin, CHANGE);
-  }
+ // for (int pin = 0; pin < 16; pin++)  {  
+//    mcp.pinMode(pin, INPUT);    
+//    mcp.pullUp(pin,HIGH); 
+//    mcp.setupInterruptPin(pin, CHANGE);
+ //  }
 
-
+/*
 
   // similar, but on port B.
   mcp.pinMode(mcpPinB, INPUT);
   mcp.pullUp(mcpPinB, HIGH);  // turn on a 100K pullup internall
   mcp.setupInterruptPin(mcpPinB,FALLING);
   mcp.readGPIOAB();    // Resets MCP Interrupt
-
+*/
    clearAll(); 
   pixels.show();
   pinMode(PinInt, INPUT);   
@@ -358,11 +367,15 @@ void loop() {
         it->draw_shape();    
         it->advance_radius(0.02);
         float r = it ->get_radius();
-        if (r - (int)r == 0) { 
+        int round_radius = (int)(100*r)%100;
+       // Serial.print("r "); Serial.print(r);Serial.print(" (int)r "); Serial.print((int)r);Serial.print(" round radius ");Serial.println(round_radius);
+        
+        if (round_radius == 99 || round_radius == 1 || round_radius == 0 ) { 
+          Serial.println("color change");    
           it->advance_color(COLOR_JUMP); // when the radius advanced in int value, adbvance the color
         }
         //  Serial.println(" ");
-        Serial.println(it->get_radius());    
+    //    Serial.println(it->get_radius());    
   
       } else {   
          circle_vec.pop();      
@@ -378,11 +391,18 @@ void loop() {
  
   
 }
+
+//----------------------------
+//  handleKeypress
+//----------------------------
 void handleKeypress() {
+  delay(20); // for rebounce of interrupt
   interrupt_flag = 0;  
   int x = random(0,4);
   int y = random(0,24);    
   long rand_color = random (0,NUM_OF_COLORS+1);
+//  x=3;
+ // y=1;
   circle c(x,y,0,rand_color,MAX_LEVEL);      
   circle_vec.push_back(c);
     
