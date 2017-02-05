@@ -34,6 +34,8 @@
 // the Teensy pin for interrupt
 #define PinInt 8
 
+static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
+static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 // Two pins at the MCP (Ports A/B where some buttons have been setup.)
 // Buttons connect the pin to grond, and pins are pulled up.
 byte mcpPinA=1;
@@ -74,60 +76,6 @@ static const int ledsMap[MAP_SIZE*MAP_SIZE] PROGMEM  = {
  -1,103,104,105,-1,-1,106,107,108,-1,-1,313,314,315,-1,-1,316,317,318,-1,-1,523,524,525,-1
 };
 
-/*
-// MCP23017 registers (everything except direction defaults to 0)
-
-#define IODIRA   0x00   // IO direction  (0 = output, 1 = input (Default))
-#define IODIRB   0x01
-#define IOPOLA   0x02   // IO polarity   (0 = normal, 1 = inverse)
-#define IOPOLB   0x03
-#define GPINTENA 0x04   // Interrupt on change (0 = disable, 1 = enable)
-#define GPINTENB 0x05
-#define DEFVALA  0x06   // Default comparison for interrupt on change (interrupts on opposite)
-#define DEFVALB  0x07
-#define INTCONA  0x08   // Interrupt control (0 = interrupt on change from previous, 1 = interrupt on change from DEFVAL)
-#define INTCONB  0x09
-#define IOCON    0x0A   // IO Configuration: bank/mirror/seqop/disslw/haen/odr/intpol/notimp
-//#define IOCON 0x0B  // same as 0x0A
-#define GPPUA    0x0C   // Pull-up resistor (0 = disabled, 1 = enabled)
-#define GPPUB    0x0D
-#define INFTFA   0x0E   // Interrupt flag (read only) : (0 = no interrupt, 1 = pin caused interrupt)
-#define INFTFB   0x0F
-#define INTCAPA  0x10   // Interrupt capture (read only) : value of GPIO at time of last interrupt
-#define INTCAPB  0x11
-#define GPIOA    0x12   // Port value. Write to change, read to obtain value
-#define GPIOB    0x13
-#define OLLATA   0x14   // Output latch. Write to latch output.
-#define OLLATB   0x15
-
-
-#define PORT 0x20  // MCP23017 is on I2C port 0x20
-
-
-// set register "reg" on expander to "data"
-// for example, IO direction
-void expanderWriteBoth (const byte reg, const byte data ) 
-{
-  Serial.print("start werite");
-  Wire.beginTransmission (PORT);
-  Wire.write (reg);
-  Wire.write (data);  // port A
-  Wire.write (data);  // port B
-  Wire.endTransmission ();
-  Serial.print("end werite");
-} // end of expanderWrite
-
-// read a byte from the expander
-unsigned int expanderRead (const byte reg) 
-{
-  Wire.beginTransmission (PORT);
-  Wire.write (reg);
-  Wire.endTransmission ();
-  Wire.requestFrom (PORT, 1);
-  return Wire.read();
-} // end of expanderRead
-
-*/
 //CRGB leds[NUM_OF_LEDS];
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_OF_LEDS + 1, LEDS_PIN, NEO_GRB + NEO_KHZ800);
 // prototypes
@@ -136,9 +84,13 @@ void clearAll();
 int xy_to_pixel (int y,int x);
 void OnInterupt();
 void handleKeypress();
+void FindButtonPressed (int x_start, int y_start, int reg,int &x, int &y);   
+long get_rand_color();
+void read_mcp_block(int status_reg,int first_x, int first_y);
+void read_mcp(Adafruit_MCP23017 mcp, int first_block_num ) ;
 //
 
-//Adafruit_MCP23017 mcp;
+Adafruit_MCP23017 mcp;
 
 class circle 
 {
@@ -297,59 +249,44 @@ void setup() {
   randomSeed(analogRead(UNCONNECTED_PIN));  
 //  FastLED.addLeds<NEOPIXEL, LEDS_PIN>(leds, NUM_OF_LEDS);
   pixels.begin();
-//  mcp.begin();      // use default address 0
+  mcp.begin();      // use default address 0
    
   // We mirror INTA and INTB, so that only one line is required between MCP and Arduino for int reporting
   // The INTA/B will not be Floating 
   // INTs will be signaled with a LOW
-//  mcp.setupInterrupts(true,false,LOW);
+  mcp.setupInterrupts(true,false,LOW);
 
   // configuration for a button on port A
   // interrupt will triger when the pin is taken to ground by a pushbutton
-  //mcp.pinMode(mcpPinA, INPUT);
-  //mcp.pullUp(mcpPinA, HIGH);  // turn on a 100K pullup internally
-  //mcp.setupInterruptPin(mcpPinA,FALLING); 
+  mcp.pinMode(mcpPinA, INPUT);
+  mcp.pullUp(mcpPinA, HIGH);  // turn on a 100K pullup internally
+  mcp.setupInterruptPin(mcpPinA,FALLING); 
 
   // Set GPI Pins 1-16 to Inputs Pulled High, change of state triggers Interrupt
- // for (int pin = 0; pin < 16; pin++)  {  
-//    mcp.pinMode(pin, INPUT);    
-//    mcp.pullUp(pin,HIGH); 
-//    mcp.setupInterruptPin(pin, CHANGE);
- //  }
-
-/*
+  for (int pin = 0; pin < 16; pin++)  {  
+    mcp.pinMode(pin, INPUT);    
+    mcp.pullUp(pin,HIGH); 
+    mcp.setupInterruptPin(pin, CHANGE);
+  }
 
   // similar, but on port B.
   mcp.pinMode(mcpPinB, INPUT);
   mcp.pullUp(mcpPinB, HIGH);  // turn on a 100K pullup internall
   mcp.setupInterruptPin(mcpPinB,FALLING);
   mcp.readGPIOAB();    // Resets MCP Interrupt
-*/
-   clearAll(); 
+
+  clearAll(); 
   pixels.show();
   pinMode(PinInt, INPUT);   
   attachInterrupt(PinInt, OnInterupt, FALLING); 
   Serial.println("reset");
 
-  /*
-  // expander configuration register
-  expanderWriteBoth (IOCON, 0b01100000); // mirror interrupts, disable sequential mode
- 
-  // enable pull-up on switches
-  expanderWriteBoth (GPPUA, 0xFF);   // pull-up resistor for switch - both ports
-
-  // invert polarity
-  expanderWriteBoth (IOPOLA, 0xFF);  // invert polarity of signal - both ports
-  
-  // enable all interrupts
-  expanderWriteBoth (GPINTENA, 0xFF); // enable interrupts - both ports
-
-   // read from interrupt capture ports to clear them
-  expanderRead (INTCAPA);
-  expanderRead (INTCAPB);
-  */
 }
 circle * it;
+
+//----------------------------
+//  LOOP
+//----------------------------
 void loop() {
  // Serial.println("loop");    
   
@@ -371,7 +308,7 @@ void loop() {
        // Serial.print("r "); Serial.print(r);Serial.print(" (int)r "); Serial.print((int)r);Serial.print(" round radius ");Serial.println(round_radius);
         
         if (round_radius == 99 || round_radius == 1 || round_radius == 0 ) { 
-          Serial.println("color change");    
+          //Serial.println("color change");    
           it->advance_color(COLOR_JUMP); // when the radius advanced in int value, adbvance the color
         }
         //  Serial.println(" ");
@@ -396,19 +333,100 @@ void loop() {
 //  handleKeypress
 //----------------------------
 void handleKeypress() {
-  delay(20); // for rebounce of interrupt
-  interrupt_flag = 0;  
-  int x = random(0,4);
-  int y = random(0,24);    
-  long rand_color = random (0,NUM_OF_COLORS+1);
-//  x=3;
- // y=1;
-  circle c(x,y,0,rand_color,MAX_LEVEL);      
-  circle_vec.push_back(c);
+  delay(100); // for rebounce of interrupt
+  
+ // int x = random(0,4);
+//  int y = random(0,24);     
     
-  Serial.println("handleKeypress!");    
+  // Get more information from the MCP from the INT
+  //uint8_t pin=mcp.getLastInterruptPin();
+  uint8_t val=mcp.getLastInterruptPinValue();
+  if (val > 0) {return;}  
+  read_mcp(mcp,0);
+  
+  
+  // we have to wait for the interrupt condition to finish
+  while( ! (mcp.digitalRead(mcpPinB) && mcp.digitalRead(mcpPinA) )) ;    
+  
+//  circle c(x,y,0,rand_color,MAX_LEVEL);      
+  
+  Serial.println("handleKeypress!"); 
+  interrupt_flag = 0;  
+        
   
 }
+//----------------------------
+//  read_mcp_block
+//----------------------------
+void read_mcp_block(int status_reg,int first_x, int first_y) {
+  int x,y;
+  Serial.print("status_reg "); 
+  Serial.println(status_reg);   
+  FindButtonPressed (first_x,first_y,status_reg,x,y);  
+  Serial.print("x y "); 
+  Serial.print(x); 
+  Serial.print(" "); 
+  Serial.println(y);   
+  if (x != -1) {
+    circle c(x,y,0,get_rand_color(),MAX_LEVEL);
+    circle_vec.push_back(c);
+  }
+}
+//----------------------------
+//  read_mcp
+//----------------------------
+void read_mcp(Adafruit_MCP23017 mcp, int first_block_num ) {
+  uint8_t status_reg = ~(mcp.readGPIO(1));      
+  int first_status = status_reg & 15; 
+  int second_status = status_reg >> 4; 
+  
+  read_mcp_block(first_status,first_xy[first_block_num][0],first_xy[first_block_num][1]);
+  read_mcp_block(second_status,first_xy[first_block_num+1][0],first_xy[first_block_num+1][1]);
+
+  status_reg = ~(mcp.readGPIO(0));      
+  first_status = status_reg >> 4; 
+  second_status = status_reg & 15; 
+  read_mcp_block(first_status,first_xy[first_block_num+2][0],first_xy[first_block_num+2][1]);
+  read_mcp_block(second_status,first_xy[first_block_num+3][0],first_xy[first_block_num+3][1]);
+  
+  
+  
+}
+
+//----------------------------
+//  get_rand_color
+//----------------------------
+long get_rand_color() {
+  return random (0,NUM_OF_COLORS+1);
+}
+//----------------------------
+//  FindButtonPressed
+//----------------------------
+void FindButtonPressed (int x_start, int y_start, int reg,int &x, int &y) {   
+  switch (reg) {
+    case 0:
+     x=-1; y =-1;break;
+    case 1:
+      x=x_start+button_map[0][0]; y=y_start+button_map[0][1]; break;
+    case 2:
+      x=x_start+button_map[1][0]; y=y_start+button_map[1][1]; break;
+    case 3:
+      x=x_start+(button_map[0][0]+button_map[1][0])/2; y=y_start+(button_map[0][1]+button_map[1][1])/2; break;
+    case 4:
+      x=x_start+button_map[2][0]; y=y_start+button_map[2][1]; break;    
+    case 6: // 
+      x=x_start+(button_map[1][0]+button_map[2][0])/2; y=y_start+(button_map[1][1]+button_map[2][1])/2; break;    
+    case 8:
+      x=x_start+button_map[3][0]; y=y_start+button_map[3][1]; break;
+    case 9:
+      x=x_start+(button_map[0][0]+button_map[3][0])/2; y=y_start+(button_map[0][1]+button_map[3][1])/2; break;    
+    case 12:
+      x=x_start+(button_map[2][0]+button_map[3][0])/2; y=y_start+(button_map[2][1]+button_map[3][1])/2; break;         
+    default:
+      x=x_start+(button_map[0][0]+button_map[2][0])/2; y=y_start+(button_map[0][1]+button_map[2][1])/2; break;
+  }  
+}
+
 
 //----------------------------
 //  clearAll
