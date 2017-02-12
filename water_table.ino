@@ -26,7 +26,7 @@
 #define COLOR_JUMP 1
 
 //the max radius of the circle
-#define MAX_RADIUS 3
+#define MAX_RADIUS 1
 
 // Max power level
 #define MAX_LEVEL 255
@@ -34,8 +34,9 @@
 // the Teensy pin for interrupt
 #define PinInt 8
 
-#define NUM_OF_MCP 7
+#define NUM_OF_MCP 1
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
+//static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14,19},{18,17,16,15},{20,21,22,23},{24,-1,-1,-1}}; // map of the the control blocks of each mcp
 // the blocks num:
 // 4 9 14 19 24
@@ -249,12 +250,13 @@ volatile int interrupt_flag=0;
 c_vector circle_vec;
 void setup() {
 //  Wire.begin ();  
+  delay(3000);
   Serial.begin(9600);
   randomSeed(analogRead(UNCONNECTED_PIN));  
 //  FastLED.addLeds<NEOPIXEL, LEDS_PIN>(leds, NUM_OF_LEDS);
   pixels.begin();
   for (int i = 0; i< NUM_OF_MCP; ++i) {     
-    mcp[i].begin(i);      // use default address 0
+    mcp[i].begin();      // use default address 0
    
     // We mirror INTA and INTB, so that only one line is required between MCP and Arduino for int reporting
     // The INTA/B will not be Floating 
@@ -281,22 +283,23 @@ circle * it;
 //----------------------------
 //  LOOP
 //----------------------------
-void loop() {
+void loop() {  
  // Serial.println("loop");    
   
  // Serial.println(getColor(1,100));
-   clearAll();  
+   clearAll();   
   if (interrupt_flag) {
     handleKeypress();    
   }
            
   
   //for (vector<circle>::iterator it = circle_vec.begin(); it != circle_vec.end(); ++ it) {
+  int counter = 0;
     for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
+      Serial.println(++counter);
       if ( it ->get_radius() < MAX_RADIUS) {
-    
-        it->draw_shape();    
-        it->advance_radius(0.02);
+        it->draw_shape();            
+        it->advance_radius(0.2);
         float r = it ->get_radius();
         int round_radius = (int)(100*r)%100;
        // Serial.print("r "); Serial.print(r);Serial.print(" (int)r "); Serial.print((int)r);Serial.print(" round radius ");Serial.println(round_radius);
@@ -314,10 +317,11 @@ void loop() {
       // it->advance_radius(-MAX_RADIUS);
       }
         
-      pixels.show();
-      delay(DELAY);     
+      
       
     }
+    pixels.show();
+    delay(DELAY);     
     
  
   
@@ -342,7 +346,9 @@ void handleKeypress() {
   
    
   Serial.println("handleKeypress!"); 
-  interrupt_flag = 0;  
+  cli();
+  interrupt_flag = 0;
+  sei();
         
   
 }
@@ -399,6 +405,25 @@ void read_mcp(int mcp_num ) {
   
 }
 
+/*
+void read_mcp(Adafruit_MCP23017 mcp, int first_block_num ) {
+  uint8_t status_reg = ~(mcp.readGPIO(1));      
+  int first_status = status_reg & 15; 
+  int second_status = status_reg >> 4; 
+  
+  read_mcp_block(first_status,first_xy[first_block_num][0],first_xy[first_block_num][1]);
+  read_mcp_block(second_status,first_xy[first_block_num+1][0],first_xy[first_block_num+1][1]);
+
+  status_reg = ~(mcp.readGPIO(0));      
+  first_status = status_reg >> 4; 
+  second_status = status_reg & 15; 
+  read_mcp_block(first_status,first_xy[first_block_num+2][0],first_xy[first_block_num+2][1]);
+  read_mcp_block(second_status,first_xy[first_block_num+3][0],first_xy[first_block_num+3][1]);
+  
+  
+  
+}
+*/
 
 //----------------------------
 //  get_rand_color
