@@ -19,7 +19,7 @@
 #define LEDS_PIN 6
 
 // delay between iterations
-#define DELAY 20 
+#define DELAY 10 
 
 #define NUM_OF_COLORS 25
 // each iteration the color will jump in this value (0 for on color circle)
@@ -32,7 +32,7 @@
 #define MAX_LEVEL 255
 
 // the Teensy pin for interrupt
-#define PinInt 8
+byte PinInt = 8;
 
 #define NUM_OF_MCP 7
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
@@ -282,7 +282,8 @@ void setup() {
 
   clearAll(); 
   pixels.show();
-  pinMode(PinInt, INPUT);   
+  pinMode(PinInt, INPUT);  
+  //TODO test this new method 
   attachInterrupt(PinInt, OnInterupt, FALLING); 
   Serial.println("reset");
 }
@@ -297,7 +298,7 @@ void loop() {
  // Serial.println(getColor(1,100));
    clearAll();   
   if (interrupt_flag) {
-    handleKeypress();    
+    handleKeypress();
   }
            
   
@@ -339,7 +340,10 @@ void loop() {
 //  handleKeypress
 //----------------------------
 void handleKeypress() {
-  delay(100); // for rebounce of interrupt
+  Serial.println("handleKeypress!"); 
+  detachInterrupt(PinInt);
+  
+  //delay(100); // for rebounce of interrupt - TODO - test this
   
  // int x = random(0,4);
 //  int y = random(0,24);     
@@ -354,16 +358,17 @@ void handleKeypress() {
   }
   
    
-  Serial.println("handleKeypress!"); 
+  //while ( !(mcp.digitalRead(mcpPinA) && mcp.digitalRead(mcpPinB) && mcp.digitalRead(mcpPinC)));
+  //PERHAPS MORE CLEAN INTRRUPT IS NEEDED
+  for (int i = 0; i < NUM_OF_MCP; ++i) {
+    mcp[i].readGPIOAB(); //RESET IT? Perhaps the code above
+    //TODO: perhaps we just need to clear the mcp that was just interrupted?
+  }  
   cli();
   interrupt_flag = 0;
-  //PERHAPS MORE CLEAN INTRRUPT IS NEEDED
-//  for (int i = 0; i < NUM_OF_MCP; ++i) {
-//    mcp[i].readGPIOAB(); //RESET IT?
-//  }
   sei();
-        
-  
+  attachInterrupt(PinInt, OnInterupt, FALLING);
+  Serial.println("handleKeypress Handled");
 }
 //----------------------------
 //  read_mcp_block
