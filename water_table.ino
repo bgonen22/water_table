@@ -26,7 +26,7 @@
 #define COLOR_JUMP 1
 
 //the max radius of the circle
-#define MAX_RADIUS 1
+#define MAX_RADIUS 3
 
 // Max power level
 #define MAX_LEVEL 255
@@ -34,7 +34,7 @@
 // the Teensy pin for interrupt
 #define PinInt 8
 
-#define NUM_OF_MCP 1
+#define NUM_OF_MCP 7
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
 //static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14,19},{18,17,16,15},{20,21,22,23},{24,-1,-1,-1}}; // map of the the control blocks of each mcp
@@ -50,7 +50,7 @@ static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14
 #define UNCONNECTED_PIN 0
 
 // max number of parallel circles
-#define VECTOR_SIZE 8
+#define VECTOR_SIZE 50
 
 #define MAP_SIZE 25
 static const int ledsMap[MAP_SIZE*MAP_SIZE] PROGMEM  = {
@@ -249,20 +249,29 @@ volatile int interrupt_flag=0;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
 void setup() {
-//  Wire.begin ();  
+//  Wire.begin ();
   delay(3000);
   Serial.begin(9600);
+  Serial.println("Starting up...");
   randomSeed(analogRead(UNCONNECTED_PIN));  
 //  FastLED.addLeds<NEOPIXEL, LEDS_PIN>(leds, NUM_OF_LEDS);
+  Serial.println("Init pixels...");
   pixels.begin();
+  Serial.print("Initing ");
+  Serial.print(NUM_OF_MCP);
+  Serial.println(" MCP");
   for (int i = 0; i< NUM_OF_MCP; ++i) {     
-    mcp[i].begin();      // use default address 0
-   
+    Serial.print("Init mcp ");
+    Serial.println(i);
+    mcp[i].begin(i);
+
     // We mirror INTA and INTB, so that only one line is required between MCP and Arduino for int reporting
     // The INTA/B will not be Floating 
     // INTs will be signaled with a LOW
+    Serial.print("Setup interrupts for mcp");
     mcp[i].setupInterrupts(true,false,LOW);
     // Set GPI Pins 1-16 to Inputs Pulled High, change of state triggers Interrupt
+    Serial.println("Init pins for mcp");
     for (int pin = 0; pin < 16; pin++)  {  
       mcp[i].pinMode(pin, INPUT);    
       mcp[i].pullUp(pin,HIGH); 
@@ -276,7 +285,6 @@ void setup() {
   pinMode(PinInt, INPUT);   
   attachInterrupt(PinInt, OnInterupt, FALLING); 
   Serial.println("reset");
-
 }
 circle * it;
 
@@ -284,7 +292,7 @@ circle * it;
 //  LOOP
 //----------------------------
 void loop() {  
- // Serial.println("loop");    
+ Serial.println("loop");
   
  // Serial.println(getColor(1,100));
    clearAll();   
@@ -299,7 +307,7 @@ void loop() {
       Serial.println(++counter);
       if ( it ->get_radius() < MAX_RADIUS) {
         it->draw_shape();            
-        it->advance_radius(0.2);
+        it->advance_radius(0.1);
         float r = it ->get_radius();
         int round_radius = (int)(100*r)%100;
        // Serial.print("r "); Serial.print(r);Serial.print(" (int)r "); Serial.print((int)r);Serial.print(" round radius ");Serial.println(round_radius);
@@ -340,7 +348,8 @@ void handleKeypress() {
   //uint8_t pin=mcp.getLastInterruptPin();
   for (int i = 0; i < NUM_OF_MCP; ++i) {
     uint8_t val=mcp[i].getLastInterruptPinValue();
-    if (val > 0) {continue;}  
+    if (val > 0) {continue;}
+    Serial.println("Starting readmcp"); 
     read_mcp(i);
   }
   
@@ -348,6 +357,10 @@ void handleKeypress() {
   Serial.println("handleKeypress!"); 
   cli();
   interrupt_flag = 0;
+  //PERHAPS MORE CLEAN INTRRUPT IS NEEDED
+//  for (int i = 0; i < NUM_OF_MCP; ++i) {
+//    mcp[i].readGPIOAB(); //RESET IT?
+//  }
   sei();
         
   
@@ -373,8 +386,9 @@ void read_mcp_block(int status_reg,int first_x, int first_y) {
 //  read_mcp
 //----------------------------
 void read_mcp(int mcp_num ) {
-  uint8_t status_reg;      
-  int pin_status;   
+  Serial.println("read mcp"); 
+  uint8_t status_reg;
+  int pin_status;
   int block_num,first_x,first_y;
 
   status_reg = ~(mcp[mcp_num].readGPIO(1));
@@ -382,12 +396,14 @@ void read_mcp(int mcp_num ) {
   block_num = mcp_block_map[mcp_num][0];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
+  Serial.println("about to read mcp block"); 
   read_mcp_block(pin_status,first_x,first_y);
 
-  pin_status = status_reg >> 4;   
+  pin_status = status_reg >> 4;
   block_num = mcp_block_map[mcp_num][1];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
+  Serial.println("about to read mcp block"); 
   read_mcp_block(pin_status,first_x,first_y);
 
   status_reg = ~(mcp[mcp_num].readGPIO(0));      
@@ -395,12 +411,14 @@ void read_mcp(int mcp_num ) {
   block_num = mcp_block_map[mcp_num][2];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
+  Serial.println("about to read mcp block"); 
   read_mcp_block(pin_status,first_x,first_y);
 
   pin_status = status_reg >> 4;   
   block_num = mcp_block_map[mcp_num][3];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
+  Serial.println("about to read mcp block"); 
   read_mcp_block(pin_status,first_x,first_y);   
   
 }
