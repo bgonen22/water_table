@@ -34,7 +34,7 @@
 // the Teensy pin for interrupt
 byte PinInt = 8;
 
-#define NUM_OF_MCP 7
+#define NUM_OF_MCP 2
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
 //static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14,19},{18,17,16,15},{20,21,22,23},{24,-1,-1,-1}}; // map of the the control blocks of each mcp
@@ -364,7 +364,21 @@ void loop() {
 void handleKeypress() {
   Serial.println("handleKeypress!"); 
   detachInterrupt(PinInt);
-  
+
+
+//   if((lastIntrruptTime - TIME_TO_WAIT_ON_STUCK_MODE) >= millis()){
+//    Serial.print("Perhaps stuck again - releasing");
+//    Serial.println(lastIntrruptTime + TIME_TO_WAIT_ON_STUCK_MODE);
+//    Serial.print("millis()");
+//    Serial.println(millis());
+//
+//    cli();
+//    interrupt_flag = 0; //TODO: no need
+//    //TODO apperantly without this the program hangs
+//    mcp[0].readGPIOAB(); //RESET IT? Perhaps the code above
+//    sei();
+//  }
+//  lastIntrruptTime = millis();
   
  // int x = random(0,4);
  // int y = random(0,24);     
