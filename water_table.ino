@@ -26,7 +26,7 @@
 #define COLOR_JUMP 1
 
 //the max radius of the circle
-#define MAX_RADIUS 7
+#define MAX_RADIUS 3
 
 // Max power level
 #define MAX_LEVEL 255
@@ -34,7 +34,7 @@
 // the Teensy pin for interrupt
 byte PinInt = 8;
 
-#define NUM_OF_MCP 2
+#define NUM_OF_MCP 7
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
 //static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14,19},{18,17,16,15},{20,21,22,23},{24,-1,-1,-1}}; // map of the the control blocks of each mcp
@@ -81,6 +81,7 @@ static const int ledsMap[MAP_SIZE*MAP_SIZE] PROGMEM  = {
  -1,103,104,105,-1,-1,106,107,108,-1,-1,313,314,315,-1,-1,316,317,318,-1,-1,523,524,525,-1
 };
 
+//CRGB leds[NUM_OF_LEDS];
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_OF_LEDS + 1, LEDS_PIN, NEO_GRB + NEO_KHZ800);
 // prototypes
 uint32_t getColor(byte color, byte user_power);
@@ -245,15 +246,16 @@ class c_vector
 // ---------------------------------------------
 volatile int interrupt_flag=0;
 
-
 //vector<circle> circle_vec;  
 c_vector circle_vec;
+int ideal_time;
 void setup() {
 //  Wire.begin ();
-  delay(1500);
+  delay(3000);
   Serial.begin(9600);
   Serial.println("Starting up...");
   randomSeed(analogRead(UNCONNECTED_PIN));  
+//  FastLED.addLeds<NEOPIXEL, LEDS_PIN>(leds, NUM_OF_LEDS);
   Serial.println("Init pixels...");
   pixels.begin();
   Serial.print("Initing ");
@@ -267,7 +269,7 @@ void setup() {
     // We mirror INTA and INTB, so that only one line is required between MCP and Arduino for int reporting
     // The INTA/B will not be Floating 
     // INTs will be signaled with a LOW
-    Serial.println("Setup interrupts for mcp");
+    Serial.print("Setup interrupts for mcp");
     mcp[i].setupInterrupts(true,false,LOW);
     // Set GPI Pins 1-16 to Inputs Pulled High, change of state triggers Interrupt
     Serial.println("Init pins for mcp");
@@ -275,55 +277,36 @@ void setup() {
       mcp[i].pinMode(pin, INPUT);    
       mcp[i].pullUp(pin,HIGH); 
       mcp[i].setupInterruptPin(pin, CHANGE);
-      Serial.print("Init pin");
-      Serial.println(pin);
     }  
     mcp[i].readGPIOAB();    // Resets MCP Interrupt
+    ideal_time = 0;
   }
 
   clearAll(); 
   pixels.show();
-  pinMode(PinInt, INPUT_PULLUP);
+  pinMode(PinInt, INPUT);  
   //TODO test this new method 
   attachInterrupt(PinInt, OnInterupt, FALLING); 
   Serial.println("reset");
 }
-
 circle * it;
 
-
-//TODO: This is how we know if a stuck was made - and we reset - right now its 10 seconds
-unsigned long TIME_TO_WAIT_ON_STUCK_MODE = 10000;
-unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
 //----------------------------
 //  LOOP
 //----------------------------
 void loop() {  
  //Serial.println("loop");
-//   if((lastIntrruptTime - TIME_TO_WAIT_ON_STUCK_MODE) >= millis()){
-//    Serial.print("Perhaps stuck again - releasing");
-//    Serial.println(lastIntrruptTime + TIME_TO_WAIT_ON_STUCK_MODE);
-//    Serial.print("millis()");
-//    Serial.println(millis());
-//
-//    cli();
-//    //interrupt_flag = 0; //TODO: no need
-//    //TODO apperantly without this the program hangs
-//    mcp[0].readGPIOAB(); //RESET IT? Perhaps the code above
-//    sei();
-//  }
- 
+  
  // Serial.println(getColor(1,100));
-
- 
-   clearAll();   //TODO: is this needed???
+   clearAll();   
   if (interrupt_flag) {
     handleKeypress();
   }
+           
   
   //for (vector<circle>::iterator it = circle_vec.begin(); it != circle_vec.end(); ++ it) {
-    for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
-      if ( it ->get_radius() < MAX_RADIUS) {
+  for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
+        if ( it ->get_radius() < MAX_RADIUS) {
         it->draw_shape();            
         it->advance_radius(0.1);
         float r = it ->get_radius();
@@ -346,51 +329,38 @@ void loop() {
       
       
     }
-    pixels.show();
-    delay(DELAY);
-
-    //TODO: perhaps this will stop intrupt from getting stuck
-//    for (int i = 0; i < NUM_OF_MCP; ++i) {
-//      mcp[i].readGPIOAB(); //RESET IT? Perhaps the code above
-//    }
+    pixels.show();     
     
+    if (millis() - ideal_time > 15000) {
+      // if there was no interrupt for 15 sec, maybe it got stuck so reseting
+      _reboot_Teensyduino_();
+    }
+
+    delay(DELAY);     
+    
+ 
   
 }
 
 //----------------------------
 //  handleKeypress
 //----------------------------
-
 void handleKeypress() {
   Serial.println("handleKeypress!"); 
   detachInterrupt(PinInt);
-
-
-//   if((lastIntrruptTime - TIME_TO_WAIT_ON_STUCK_MODE) >= millis()){
-//    Serial.print("Perhaps stuck again - releasing");
-//    Serial.println(lastIntrruptTime + TIME_TO_WAIT_ON_STUCK_MODE);
-//    Serial.print("millis()");
-//    Serial.println(millis());
-//
-//    cli();
-//    interrupt_flag = 0; //TODO: no need
-//    //TODO apperantly without this the program hangs
-//    mcp[0].readGPIOAB(); //RESET IT? Perhaps the code above
-//    sei();
-//  }
-//  lastIntrruptTime = millis();
+  
+  //delay(100); // for rebounce of interrupt - TODO - test this
   
  // int x = random(0,4);
- // int y = random(0,24);     
-  
+//  int y = random(0,24);     
+    
   // Get more information from the MCP from the INT
+  //uint8_t pin=mcp.getLastInterruptPin();
   for (int i = 0; i < NUM_OF_MCP; ++i) {
-    uint8_t pin=mcp[i].getLastInterruptPin();
-    Serial.print("last pin ");
-    Serial.println(pin);
     uint8_t val=mcp[i].getLastInterruptPinValue();
     if (val > 0) {continue;}
-    Serial.print("Starting readmcp"); 
+    Serial.print("Starting readmcp number "); 
+    Serial.println(i); 
     read_mcp(i);
   }
   
@@ -399,17 +369,17 @@ void handleKeypress() {
   //PERHAPS MORE CLEAN INTRRUPT IS NEEDED
   for (int i = 0; i < NUM_OF_MCP; ++i) {
     mcp[i].readGPIOAB(); //RESET IT? Perhaps the code above
-  }
+    //TODO: perhaps we just need to clear the mcp that was just interrupted?
+  }  
   cli();
   interrupt_flag = 0;
   sei();
-  //The following fixes one button press from hanging - it needs to be after the interrupt_flag = 0; and sei() exactly where he is
   attachInterrupt(PinInt, OnInterupt, FALLING);
-  Serial.println("handleKeypress Handled");
+  Serial.println("handleKeypress  ");
+  ideal_time = millis();
 }
 //----------------------------
 //  read_mcp_block
-//  status_reg - the 4 buttons
 //----------------------------
 void read_mcp_block(int status_reg,int first_x, int first_y) {
   int x,y;
@@ -435,37 +405,34 @@ void read_mcp(int mcp_num ) {
   int pin_status;
   int block_num,first_x,first_y;
 
-  //Reading First side
   status_reg = ~(mcp[mcp_num].readGPIO(1));
-  pin_status = status_reg & 15; // Reading 4 bottom pins 00001111
+  pin_status = status_reg & 15; 
   block_num = mcp_block_map[mcp_num][0];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block"); 
+  Serial.println("about to read mcp block 1"); 
   read_mcp_block(pin_status,first_x,first_y);
 
-  pin_status = status_reg >> 4; //Reading 4 top pins (MSB)
+  pin_status = status_reg >> 4;
   block_num = mcp_block_map[mcp_num][1];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block"); 
+  Serial.println("about to read mcp block 2"); 
   read_mcp_block(pin_status,first_x,first_y);
 
-  //Reading Other side
-
   status_reg = ~(mcp[mcp_num].readGPIO(0));      
-  pin_status = status_reg & 15; // Reading 4 bottom pins 00001111
+  pin_status = status_reg & 15; 
   block_num = mcp_block_map[mcp_num][2];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block"); 
+  Serial.println("about to read mcp block 3"); 
   read_mcp_block(pin_status,first_x,first_y);
 
-  pin_status = status_reg >> 4;    //Reading 4 top pins (MSB)
+  pin_status = status_reg >> 4;   
   block_num = mcp_block_map[mcp_num][3];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block"); 
+  Serial.println("about to read mcp block 4"); 
   read_mcp_block(pin_status,first_x,first_y);   
   
 }
@@ -478,7 +445,6 @@ void read_mcp(Adafruit_MCP23017 mcp, int first_block_num ) {
   
   read_mcp_block(first_status,first_xy[first_block_num][0],first_xy[first_block_num][1]);
   read_mcp_block(second_status,first_xy[first_block_num+1][0],first_xy[first_block_num+1][1]);
-
   status_reg = ~(mcp.readGPIO(0));      
   first_status = status_reg >> 4; 
   second_status = status_reg & 15; 
@@ -502,24 +468,24 @@ long get_rand_color() {
 void FindButtonPressed (int x_start, int y_start, int reg,int &x, int &y) {   
   switch (reg) {
     case 0:
-     x=-1; y =-1;break; //No button was pressed
-    case 1: //First button pressed
+     x=-1; y =-1;break;
+    case 1:
       x=x_start+button_map[0][0]; y=y_start+button_map[0][1]; break;
-    case 2: //Second button pressed
+    case 2:
       x=x_start+button_map[1][0]; y=y_start+button_map[1][1]; break;
-    case 3: //2 buttons pressed - 1+2 - Corner is pressed
+    case 3:
       x=x_start+(button_map[0][0]+button_map[1][0])/2; y=y_start+(button_map[0][1]+button_map[1][1])/2; break;
-    case 4: //Third button pressed
+    case 4:
       x=x_start+button_map[2][0]; y=y_start+button_map[2][1]; break;    
-    case 6: //2 buttons pressed - Corner is pressed
+    case 6: // 
       x=x_start+(button_map[1][0]+button_map[2][0])/2; y=y_start+(button_map[1][1]+button_map[2][1])/2; break;    
-    case 8: // Forth button pressed
+    case 8:
       x=x_start+button_map[3][0]; y=y_start+button_map[3][1]; break;
-    case 9: //2 buttons pressed - Corner is pressed
+    case 9:
       x=x_start+(button_map[0][0]+button_map[3][0])/2; y=y_start+(button_map[0][1]+button_map[3][1])/2; break;    
-    case 12: //2 buttons pressed - 2 buttons from both side - "Center" is pressed
+    case 12:
       x=x_start+(button_map[2][0]+button_map[3][0])/2; y=y_start+(button_map[2][1]+button_map[3][1])/2; break;         
-    default: //Either 3 buttons or 4 buttons - "Center" is pressed
+    default:
       x=x_start+(button_map[0][0]+button_map[2][0])/2; y=y_start+(button_map[0][1]+button_map[2][1])/2; break;
   }  
 }
@@ -592,6 +558,5 @@ int xy_to_pixel (int y,int x) {
 void OnInterupt() {
   cli();
   interrupt_flag = 1;
-  lastIntrruptTime = millis();
   sei();  
 }
