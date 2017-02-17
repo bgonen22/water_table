@@ -13,13 +13,16 @@
 //#include <avr/io.h>
 //#include <avr/interrupt.h>
 
+// Watch dog timer uses wdt_reset which resets the board if the loop is not called for
+// a set amount of time - that is the device get "Stuck"
+#include <avr/wdt.h>
 
 #define NUM_OF_LEDS 525
 
 #define LEDS_PIN 6
 
 // delay between iterations
-#define DELAY 10 
+#define DELAY 10
 
 #define NUM_OF_COLORS 25
 // each iteration the color will jump in this value (0 for on color circle)
@@ -34,7 +37,7 @@
 // the Teensy pin for interrupt
 byte PinInt = 8;
 
-#define NUM_OF_MCP 2
+#define NUM_OF_MCP 3
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
 //static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14,19},{18,17,16,15},{20,21,22,23},{24,-1,-1,-1}}; // map of the the control blocks of each mcp
@@ -245,13 +248,24 @@ class c_vector
 // ---------------------------------------------
 volatile int interrupt_flag=0;
 
+void init_watchdog() {
+  WDOG_UNLOCK = WDOG_UNLOCK_SEQ1;
+  WDOG_UNLOCK = WDOG_UNLOCK_SEQ2;
+  delayMicroseconds(1); // Need to wait a bit..
+  WDOG_STCTRLH = 0x0001; // Enable WDG
+  WDOG_TOVALL = 3000; // The next 2 lines sets the time-out value. This is the value that the watchdog timer compare itself to.
+  WDOG_TOVALH = 0;
+  WDOG_PRESC = 0; // This sets prescale clock so that the watchdog timer ticks at 1kHZ instead of the default 1kHZ/4 = 200 HZ
+}
 
+int ideal_time;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
 void setup() {
 //  Wire.begin ();
-  delay(1500);
+  //delay(1500);
   Serial.begin(9600);
+  init_watchdog();
   Serial.println("Starting up...");
   randomSeed(analogRead(UNCONNECTED_PIN));  
   Serial.println("Init pixels...");
@@ -259,10 +273,12 @@ void setup() {
   Serial.print("Initing ");
   Serial.print(NUM_OF_MCP);
   Serial.println(" MCP");
+
+  
   for (int i = 0; i< NUM_OF_MCP; ++i) {     
     Serial.print("Init mcp ");
     Serial.println(i);
-    mcp[i].begin(i);
+     mcp[i].begin(i);
 
     // We mirror INTA and INTB, so that only one line is required between MCP and Arduino for int reporting
     // The INTA/B will not be Floating 
@@ -277,49 +293,55 @@ void setup() {
       mcp[i].setupInterruptPin(pin, CHANGE);
       Serial.print("Init pin");
       Serial.println(pin);
-    }  
+    }
     mcp[i].readGPIOAB();    // Resets MCP Interrupt
-  }
-
+    ideal_time = 0;
+  } 
   clearAll(); 
   pixels.show();
+  
   pinMode(PinInt, INPUT_PULLUP);
   //TODO test this new method 
   attachInterrupt(PinInt, OnInterupt, FALLING); 
   Serial.println("reset");
+
+  // Create initialize circles
+  circle c1(0,0,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c1);
+  circle c2(0,25,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c2);
+//  circle c3(25,0,0,get_rand_color(),MAX_LEVEL);
+//  circle_vec.push_back(c3);
+//  circle c4(25,25,0,get_rand_color(),MAX_LEVEL);
+//  circle_vec.push_back(c4);
+
+  circle c(15,10,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c);
 }
 
 circle * it;
 
 
+void update_watchdog() {
+  noInterrupts();
+  WDOG_REFRESH = 0xA602;
+  WDOG_REFRESH = 0xB480;
+  interrupts()
+}
 //TODO: This is how we know if a stuck was made - and we reset - right now its 10 seconds
 unsigned long TIME_TO_WAIT_ON_STUCK_MODE = 10000;
 unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
 //----------------------------
 //  LOOP
 //----------------------------
-void loop() {  
- //Serial.println("loop");
-//   if((lastIntrruptTime - TIME_TO_WAIT_ON_STUCK_MODE) >= millis()){
-//    Serial.print("Perhaps stuck again - releasing");
-//    Serial.println(lastIntrruptTime + TIME_TO_WAIT_ON_STUCK_MODE);
-//    Serial.print("millis()");
-//    Serial.println(millis());
-//
-//    cli();
-//    //interrupt_flag = 0; //TODO: no need
-//    //TODO apperantly without this the program hangs
-//    mcp[0].readGPIOAB(); //RESET IT? Perhaps the code above
-//    sei();
-//  }
- 
- // Serial.println(getColor(1,100));
-
- 
-   clearAll();   //TODO: is this needed???
+void loop() {
+  clearAll();   //TODO: is this needed???
   if (interrupt_flag) {
     handleKeypress();
   }
+
+  // the program is alive...for now. 
+  update_watchdog();
   
   //for (vector<circle>::iterator it = circle_vec.begin(); it != circle_vec.end(); ++ it) {
     for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
@@ -334,7 +356,6 @@ void loop() {
           //Serial.println("color change");    
           it->advance_color(COLOR_JUMP); // when the radius advanced in int value, adbvance the color
         }
-        //  Serial.println(" ");
     //    Serial.println(it->get_radius());    
   
       } else {   
@@ -349,12 +370,17 @@ void loop() {
     pixels.show();
     delay(DELAY);
 
-    //TODO: perhaps this will stop intrupt from getting stuck
-//    for (int i = 0; i < NUM_OF_MCP; ++i) {
-//      mcp[i].readGPIOAB(); //RESET IT? Perhaps the code above
-//    }
+    //Serial.println(millis() - ideal_time);
+    if (millis() - ideal_time > 1500) {
+        // if there was no interrupt for 10 sec, maybe it got stuck so reseting
+        //_reboot_Teensyduino_();
+        for(int i=0;i<NUM_OF_MCP;i++) {
+          mcp[i].readGPIOAB();
+        }
+        ideal_time = millis();
+        Serial.println("Reset after idle time");
+    }
     
-  
 }
 
 //----------------------------
@@ -406,6 +432,7 @@ void handleKeypress() {
   //The following fixes one button press from hanging - it needs to be after the interrupt_flag = 0; and sei() exactly where he is
   attachInterrupt(PinInt, OnInterupt, FALLING);
   Serial.println("handleKeypress Handled");
+  ideal_time = millis();
 }
 //----------------------------
 //  read_mcp_block
@@ -441,14 +468,14 @@ void read_mcp(int mcp_num ) {
   block_num = mcp_block_map[mcp_num][0];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block"); 
+  Serial.println("about to read mcp block 1"); 
   read_mcp_block(pin_status,first_x,first_y);
 
   pin_status = status_reg >> 4; //Reading 4 top pins (MSB)
   block_num = mcp_block_map[mcp_num][1];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block"); 
+  Serial.println("about to read mcp block 2"); 
   read_mcp_block(pin_status,first_x,first_y);
 
   //Reading Other side
@@ -458,14 +485,14 @@ void read_mcp(int mcp_num ) {
   block_num = mcp_block_map[mcp_num][2];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block"); 
+  Serial.println("about to read mcp block 3"); 
   read_mcp_block(pin_status,first_x,first_y);
 
   pin_status = status_reg >> 4;    //Reading 4 top pins (MSB)
   block_num = mcp_block_map[mcp_num][3];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block"); 
+  Serial.println("about to read mcp block 4"); 
   read_mcp_block(pin_status,first_x,first_y);   
   
 }
