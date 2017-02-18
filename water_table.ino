@@ -22,7 +22,7 @@
 #define LEDS_PIN 6
 
 // delay between iterations
-#define DELAY 10
+#define DELAY 2
 
 #define NUM_OF_COLORS 25
 // each iteration the color will jump in this value (0 for on color circle)
@@ -38,7 +38,7 @@
 byte PinInt = 8;
 byte PinInt2 = 9;
 
-#define NUM_OF_MCP 5
+#define NUM_OF_MCP 6
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
 //static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14,19},{18,17,16,15},{20,21,22,23},{24,-1,-1,-1}}; // map of the the control blocks of each mcp
