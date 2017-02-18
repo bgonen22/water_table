@@ -270,7 +270,7 @@ void init_watchdog() {
 unsigned long  last_button_pressed_time;
 unsigned long  ideal_time;
 int its_day_dream;
-int its_easter_egg;
+bool its_easter_egg;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
 void setup() {
@@ -439,8 +439,9 @@ void run_vector() {
             y += random (rand_y_min,rand_y_max);          
             it->set_x_y(x,y); 
           }
-        } // end of if (its_day_dream)     
-        if ( it ->get_radius() < MAX_RADIUS) {
+        } // end of if (its_day_dream)    
+        int max_r =  its_easter_egg ? MAP_SIZE/2 : MAX_RADIUS;
+        if ( it ->get_radius() < max_r) {
           it->draw_shape();
           
           it->advance_radius(it->get_size_dir()*increaseRadiusSize);
@@ -459,8 +460,16 @@ void run_vector() {
           //Serial.print(" y: ");    
           //Serial.println(it -> get_y());    
   
-       } else {   
-         circle_vec.pop();              
+       } else {            
+         if (its_easter_egg == 1) {
+          circle_vec.clear_vector();
+          circle c(12,12,0,get_rand_color(),MAX_LEVEL);
+          circle_vec.push_back(c);             
+          its_easter_egg = 2;
+         } else {
+          circle_vec.pop();  
+          its_easter_egg = 0;          
+         }
        }   
       
     }  
@@ -592,9 +601,8 @@ void read_mcp(int mcp_num ) {
 
 
 #define EASTER_EGG_TIMEOUT 1000 //The min amount of time to press all 4 corners
-int easterEggPointer = 0;
-//static const int easter_egg_button_xy[4][2] = {{0,0},{0,25},{25,0},{25,25}}; // All four corners x,y
-static const int easter_egg_button_xy[4][2] = {{0,25},{2,19},{0,25},{0,25}}; // All four corners x,y FAKE FOR TESTING
+static const int easter_egg_button_xy[4][2] = {{0,0},{0,25},{25,0},{25,25}}; // All four corners x,y
+//static const int easter_egg_button_xy[4][2] = {{0,25},{2,19},{0,25},{0,25}}; // All four corners x,y FAKE FOR TESTING
 unsigned long easter_egg_time;
 
 void CheckEasterEgg(int x, int y) {
@@ -639,16 +647,24 @@ void CheckEasterEgg(int x, int y) {
   
   
   if(is_all_lit) {
-    easterEggPointer = 0;
-    //its_easter_egg = 1;
+    its_easter_egg = 1;
     Serial.println("Start Easter Egg!!!");
-    for(int i=0;i<random(5,10);i++) {
-      circle c(i,i,0,get_rand_color(),MAX_LEVEL);
-      circle_vec.push_back(c);
-    }
+    run_easter_egg();    
   }
 }
 
+//----------------------------
+//  run_easter_egg
+//----------------------------
+void run_easter_egg() {
+  circle_vec.clear_vector() ;// clear all the circles before the easter egg
+  for (int i = 0 ;i<4 ;++i) {    
+      int x = easter_egg_button_xy[i][0];
+      int y = easter_egg_button_xy[i][1];
+      circle c(x,y,0,get_rand_color(),MAX_LEVEL);
+      circle_vec.push_back(c);
+    }
+}
 
 //----------------------------
 //  get_rand_color
