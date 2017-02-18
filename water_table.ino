@@ -357,8 +357,6 @@ unsigned long TIME_TO_DO_DAY_DREAMING = 4000;
 unsigned long TIME_TO_RESET_BUTTON = 1500;
 unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
 
-float increaseRadiusSize = 0.1;
-
 //----------------------------
 //  LOOP
 //----------------------------
@@ -398,6 +396,9 @@ void loop() {
 }
 
 
+int DAY_DREAM_DELAY = 5;
+int MOVE_XY = 200;
+int xy_counter = 0;
 //----------------------------
 //  run_vector
 //----------------------------
@@ -411,31 +412,33 @@ void run_vector() {
             it->set_size_dir(1);
             it->advance_radius(it->get_size_dir()*increaseRadiusSize);
           }
-          // in day dream the circke will move randomaly 
-          int x = it -> get_x();
-          int y = it -> get_y();
-          int rand_x_min = -1; 
-          int rand_x_max = 2;
-          int rand_y_min = -1; 
-          int rand_y_max = 2;
-          if (x==0) {
-            rand_x_min = 0;                        
-          } else if (x==24) {
-            rand_x_max = 1;            
+          if((xy_counter % MOVE_XY) == 0) {
+             // in day dream the circke will move randomaly 
+            int x = it -> get_x();
+            int y = it -> get_y();
+            int rand_x_min = -1; 
+            int rand_x_max = 2;
+            int rand_y_min = -1; 
+            int rand_y_max = 2;
+            if (x==0) {
+              rand_x_min = 0;                        
+            } else if (x==24) {
+              rand_x_max = 1;            
+            }
+            if (y==0) {
+              rand_y_min = 0;                        
+            } else if (y==24) {
+              rand_y_max = 0;            
+            }
+            //Serial.print("radius_min max: ");    
+            //Serial.println(x);    
+            //Serial.println(rand_x_min);    
+            //Serial.println(rand_x_max);              
+            //Serial.println(random (0,1));
+            x += random (rand_x_min,rand_x_max);
+            y += random (rand_y_min,rand_y_max);          
+            it->set_x_y(x,y); 
           }
-          if (y==0) {
-            rand_y_min = 0;                        
-          } else if (y==24) {
-            rand_y_max = 0;            
-          }
-          //Serial.print("radius_min max: ");    
-          //Serial.println(x);    
-          //Serial.println(rand_x_min);    
-          //Serial.println(rand_x_max);              
-          //Serial.println(random (0,1));              
-          x += random (rand_x_min,rand_x_max);
-          y += random (rand_y_min,rand_y_max);          
-          it->set_x_y(x,y);
         } // end of if (its_day_dream)     
         if ( it ->get_radius() < MAX_RADIUS) {
           it->draw_shape();
