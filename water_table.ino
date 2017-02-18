@@ -1,10 +1,6 @@
 //#include "FastLED.h"
 #include <Adafruit_NeoPixel.h>
 
-//#include <StandardCplusplus.h>
-//#include <vector>
-//#include <iterator>
-
 //using namespace std;
 #include <Wire.h>
 #include <Adafruit_MCP23017.h>
@@ -37,6 +33,7 @@
 // the Teensy pin for interrupt
 byte PinInt = 8;
 byte PinInt2 = 9;
+byte PinInt3 = 10;
 
 #define NUM_OF_MCP 6
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
@@ -49,6 +46,7 @@ static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14
 // 1 6 11 16 21
 // 0 5 10 15 20  
 
+float increaseRadiusSize = 0.1;
 
 // unconneted pin for randomize seed
 #define UNCONNECTED_PIN 0
@@ -268,7 +266,7 @@ int last_button_pressed_time;
 c_vector circle_vec;
 void setup() {
 //  Wire.begin ();
-  //delay(1500);
+  //delay(1500); //TODO: should remove it
   Serial.begin(9600);
   init_watchdog();
   Serial.println("Starting up...");
@@ -280,7 +278,6 @@ void setup() {
   Serial.print(NUM_OF_MCP);
   Serial.println(" MCP");
 
-  
   for (int i = 0; i< NUM_OF_MCP; ++i) {     
     Serial.print("Init mcp ");
     Serial.println(i);
@@ -309,9 +306,11 @@ void setup() {
   
   pinMode(PinInt, INPUT_PULLUP);
   pinMode(PinInt2, INPUT_PULLUP);
+  pinMode(PinInt3, INPUT_PULLUP);
   //TODO test this new method 
   attachInterrupt(PinInt, OnInterupt, FALLING); 
   attachInterrupt(PinInt2, OnInterupt, FALLING); 
+  attachInterrupt(PinInt3, OnInterupt, FALLING); 
   Serial.println("reset");
 
   // Create initialize circles
@@ -336,15 +335,13 @@ void update_watchdog() {
   WDOG_REFRESH = 0xB480;
   interrupts()
 }
-unsigned long TIME_TO_DO_DAY_DREAMING = 10000;
+
+unsigned long TIME_TO_DO_DAY_DREAMING = 5000;
 unsigned long TIME_TO_RESET_BUTTON = 1500;
 unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
 //----------------------------
 //  LOOP
 //----------------------------
-
-float increaseRadiusSize = 0.1;
-
 void loop() {
   clearAll();
   if (interrupt_flag) {
@@ -374,7 +371,6 @@ void loop() {
         //it = circle_vec.erase(it);          
       // it->advance_radius(-MAX_RADIUS);
       }
-        
       
       
     }
@@ -392,9 +388,10 @@ void loop() {
         Serial.println("Reset after idle time");
     }
 
+    Serial.println(millis() - last_button_pressed_time);
     if(millis() - last_button_pressed_time > TIME_TO_DO_DAY_DREAMING) {
-      //Day dreaming
       Serial.println("Day dreaming");
+      
     }
    
     delay(DELAY);     
@@ -408,6 +405,7 @@ void handleKeypress() {
   Serial.println("handleKeypress!"); 
   detachInterrupt(PinInt);
   detachInterrupt(PinInt2);
+  detachInterrupt(PinInt3);
   
   //delay(100); // for rebounce of interrupt - TODO - test this
   
@@ -437,8 +435,10 @@ void handleKeypress() {
   //The following fixes one button press from hanging - it needs to be after the interrupt_flag = 0; and sei() exactly where he is
   attachInterrupt(PinInt, OnInterupt, FALLING);
   attachInterrupt(PinInt2, OnInterupt, FALLING);
+  attachInterrupt(PinInt3, OnInterupt, FALLING);
   Serial.println("handleKeypress Handled");
   ideal_time = millis();
+  last_button_pressed_time = millis();
 }
 //----------------------------
 //  read_mcp_block
@@ -448,7 +448,8 @@ void read_mcp_block(int status_reg,int first_x, int first_y) {
   int x,y;
   Serial.print("status_reg "); 
   Serial.println(status_reg);   
-  FindButtonPressed (first_x,first_y,status_reg,x,y);  
+  FindButtonPressed (first_x,first_y,status_reg,x,y);
+  CheckEasterEgg(x,y);
   Serial.print("x y "); 
   Serial.print(x); 
   Serial.print(" "); 
@@ -493,31 +494,26 @@ void read_mcp(int mcp_num ) {
 
   pin_status = status_reg >> 4;   //Reading 4 top pins (MSB)
   block_num = mcp_block_map[mcp_num][3];
-  first_x = (block_num/5)*5;d
+  first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
   Serial.println("about to read mcp block 4"); 
   read_mcp_block(pin_status,first_x,first_y);   
   
 }
 
-/*
-void read_mcp(Adafruit_MCP23017 mcp, int first_block_num ) {
-  uint8_t status_reg = ~(mcp.readGPIO(1));      
-  int first_status = status_reg & 15; 
-  int second_status = status_reg >> 4; 
-  
-  read_mcp_block(first_status,first_xy[first_block_num][0],first_xy[first_block_num][1]);
-  read_mcp_block(second_status,first_xy[first_block_num+1][0],first_xy[first_block_num+1][1]);
-  status_reg = ~(mcp.readGPIO(0));      
-  first_status = status_reg >> 4; 
-  second_status = status_reg & 15; 
-  read_mcp_block(first_status,first_xy[first_block_num+2][0],first_xy[first_block_num+2][1]);
-  read_mcp_block(second_status,first_xy[first_block_num+3][0],first_xy[first_block_num+3][1]);
-  
-  
-  
+int easterEggPointer = 0;
+static const int easter_egg_button_xy[4][2] = {{0,0},{25,0},{0,25},{25,25}}; // All four corners x,y
+void CheckEasterEgg(int x, int y) {
+  Serial.println("Easter egg:");
+  Serial.print(x);
+  Serial.println(" ");
+  Serial.print(y);
+  if(x == -1) { 
+    //clear
+    easterEggPointer = 0;
+    return;
+  }
 }
-*/
 
 //----------------------------
 //  get_rand_color
