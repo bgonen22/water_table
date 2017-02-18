@@ -36,8 +36,9 @@
 
 // the Teensy pin for interrupt
 byte PinInt = 8;
+byte PinInt2 = 9;
 
-#define NUM_OF_MCP 3
+#define NUM_OF_MCP 5
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
 //static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14,19},{18,17,16,15},{20,21,22,23},{24,-1,-1,-1}}; // map of the the control blocks of each mcp
@@ -253,7 +254,7 @@ void init_watchdog() {
   WDOG_UNLOCK = WDOG_UNLOCK_SEQ2;
   delayMicroseconds(1); // Need to wait a bit..
   WDOG_STCTRLH = 0x0001; // Enable WDG
-  WDOG_TOVALL = 3000; // The next 2 lines sets the time-out value. This is the value that the watchdog timer compare itself to.
+  WDOG_TOVALL = 2000; // The next 2 lines sets the time-out value. This is the value that the watchdog timer compare itself to.
   WDOG_TOVALH = 0;
   WDOG_PRESC = 0; // This sets prescale clock so that the watchdog timer ticks at 1kHZ instead of the default 1kHZ/4 = 200 HZ
 }
@@ -301,8 +302,10 @@ void setup() {
   pixels.show();
   
   pinMode(PinInt, INPUT_PULLUP);
+  pinMode(PinInt2, INPUT_PULLUP);
   //TODO test this new method 
   attachInterrupt(PinInt, OnInterupt, FALLING); 
+  attachInterrupt(PinInt2, OnInterupt, FALLING); 
   Serial.println("reset");
 
   // Create initialize circles
@@ -310,12 +313,12 @@ void setup() {
   circle_vec.push_back(c1);
   circle c2(0,25,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c2);
-//  circle c3(25,0,0,get_rand_color(),MAX_LEVEL);
-//  circle_vec.push_back(c3);
-//  circle c4(25,25,0,get_rand_color(),MAX_LEVEL);
-//  circle_vec.push_back(c4);
+  circle c3(25,0,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c3);
+  circle c4(25,25,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c4);
 
-  circle c(15,10,0,get_rand_color(),MAX_LEVEL);
+  circle c(13,13,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c);
 }
 
@@ -390,6 +393,7 @@ void loop() {
 void handleKeypress() {
   Serial.println("handleKeypress!"); 
   detachInterrupt(PinInt);
+  detachInterrupt(PinInt2);
 
 
 //   if((lastIntrruptTime - TIME_TO_WAIT_ON_STUCK_MODE) >= millis()){
@@ -431,6 +435,7 @@ void handleKeypress() {
   sei();
   //The following fixes one button press from hanging - it needs to be after the interrupt_flag = 0; and sei() exactly where he is
   attachInterrupt(PinInt, OnInterupt, FALLING);
+  attachInterrupt(PinInt2, OnInterupt, FALLING);
   Serial.println("handleKeypress Handled");
   ideal_time = millis();
 }
