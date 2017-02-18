@@ -22,7 +22,7 @@
 #define LEDS_PIN 6
 
 // delay between iterations
-#define DELAY 10
+#define DELAY 2
 
 #define NUM_OF_COLORS 25
 // each iteration the color will jump in this value (0 for on color circle)
@@ -36,8 +36,9 @@
 
 // the Teensy pin for interrupt
 byte PinInt = 8;
+byte PinInt2 = 9;
 
-#define NUM_OF_MCP 3
+#define NUM_OF_MCP 6
 static const int button_map[4][2] = {{2,4},{4,2},{2,0},{0,2}}; // configuration of the buttons on the first block: 12,3,6,9
 //static const int first_xy[5][2] = {{0,0},{0,5},{0,10},{0,15},{0,20}}; // the buttom left corner of the blocks
 static const int mcp_block_map[][4] = {{0,1,2,3},{4,9,8,7},{6,5,10,11},{12,13,14,19},{18,17,16,15},{20,21,22,23},{24,-1,-1,-1}}; // map of the the control blocks of each mcp
@@ -145,7 +146,8 @@ class circle
     //Serial.println(radius);
     radius+= add;
     //Serial.println(radius);
-  }  
+  }
+  void set_x_y(int x, int y) {x = x; y = y;}
   float get_radius() {/*Serial.print("radius ");Serial.println(radius);*/return radius;}
   //int get_x() {return center_x;}
   //int get_y() {return center_y;}
@@ -255,15 +257,15 @@ void init_watchdog() {
   WDOG_UNLOCK = WDOG_UNLOCK_SEQ2;
   delayMicroseconds(1); // Need to wait a bit..
   WDOG_STCTRLH = 0x0001; // Enable WDG
-  WDOG_TOVALL = 3000; // The next 2 lines sets the time-out value. This is the value that the watchdog timer compare itself to.
+  WDOG_TOVALL = 2000; // The next 2 lines sets the time-out value. This is the value that the watchdog timer compare itself to.
   WDOG_TOVALH = 0;
   WDOG_PRESC = 0; // This sets prescale clock so that the watchdog timer ticks at 1kHZ instead of the default 1kHZ/4 = 200 HZ
 }
 
 int ideal_time;
+int last_button_pressed_time;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
-int ideal_time;
 void setup() {
 //  Wire.begin ();
   //delay(1500);
@@ -300,13 +302,16 @@ void setup() {
     }
     mcp[i].readGPIOAB();    // Resets MCP Interrupt
     ideal_time = 0;
+    last_button_pressed_time = 0;
   } 
   clearAll(); 
   pixels.show();
   
   pinMode(PinInt, INPUT_PULLUP);
+  pinMode(PinInt2, INPUT_PULLUP);
   //TODO test this new method 
   attachInterrupt(PinInt, OnInterupt, FALLING); 
+  attachInterrupt(PinInt2, OnInterupt, FALLING); 
   Serial.println("reset");
 
   // Create initialize circles
@@ -314,10 +319,10 @@ void setup() {
   circle_vec.push_back(c1);
   circle c2(0,25,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c2);
-//  circle c3(25,0,0,get_rand_color(),MAX_LEVEL);
-//  circle_vec.push_back(c3);
-//  circle c4(25,25,0,get_rand_color(),MAX_LEVEL);
-//  circle_vec.push_back(c4);
+  circle c3(25,0,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c3);
+  circle c4(25,25,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c4);
 
   circle c(15,10,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c);
@@ -331,14 +336,17 @@ void update_watchdog() {
   WDOG_REFRESH = 0xB480;
   interrupts()
 }
-//TODO: This is how we know if a stuck was made - and we reset - right now its 10 seconds
-unsigned long TIME_TO_WAIT_ON_STUCK_MODE = 10000;
+unsigned long TIME_TO_DO_DAY_DREAMING = 10000;
+unsigned long TIME_TO_RESET_BUTTON = 1500;
 unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
 //----------------------------
 //  LOOP
 //----------------------------
+
+float increaseRadiusSize = 0.1;
+
 void loop() {
-  clearAll();   //TODO: is this needed???
+  clearAll();
   if (interrupt_flag) {
     handleKeypress();
   }
@@ -349,8 +357,8 @@ void loop() {
   //for (vector<circle>::iterator it = circle_vec.begin(); it != circle_vec.end(); ++ it) {
   for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
         if ( it ->get_radius() < MAX_RADIUS) {
-        it->draw_shape();            
-        it->advance_radius(0.1);
+        it->draw_shape();
+        it->advance_radius(increaseRadiusSize);
         float r = it ->get_radius();
         int round_radius = (int)(100*r)%100;
        // Serial.print("r "); Serial.print(r);Serial.print(" (int)r "); Serial.print((int)r);Serial.print(" round radius ");Serial.println(round_radius);
@@ -374,7 +382,7 @@ void loop() {
     
 
     //Serial.println(millis() - ideal_time);
-    if (millis() - ideal_time > 1500) {
+    if (millis() - ideal_time > TIME_TO_RESET_BUTTON) {
         // if there was no interrupt for 10 sec, maybe it got stuck so reseting
         //_reboot_Teensyduino_();
         for(int i=0;i<NUM_OF_MCP;i++) {
@@ -382,6 +390,11 @@ void loop() {
         }
         ideal_time = millis();
         Serial.println("Reset after idle time");
+    }
+
+    if(millis() - last_button_pressed_time > TIME_TO_DO_DAY_DREAMING) {
+      //Day dreaming
+      Serial.println("Day dreaming");
     }
    
     delay(DELAY);     
@@ -394,6 +407,7 @@ void loop() {
 void handleKeypress() {
   Serial.println("handleKeypress!"); 
   detachInterrupt(PinInt);
+  detachInterrupt(PinInt2);
   
   //delay(100); // for rebounce of interrupt - TODO - test this
   
@@ -421,6 +435,7 @@ void handleKeypress() {
   interrupt_flag = 0;
   sei();
   attachInterrupt(PinInt, OnInterupt, FALLING);
+  attachInterrupt(PinInt2, OnInterupt, FALLING);
   Serial.println("handleKeypress Handled");
   ideal_time = millis();
 }
