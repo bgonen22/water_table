@@ -25,7 +25,7 @@
 #define COLOR_JUMP 1
 
 //the max radius of the circle
-#define MAX_RADIUS 3
+#define MAX_RADIUS 7
 
 // Max power level
 #define MAX_LEVEL 255
@@ -270,7 +270,7 @@ void init_watchdog() {
 unsigned long  last_button_pressed_time;
 unsigned long  ideal_time;
 int its_day_dream;
-bool its_easter_egg;
+int its_easter_egg;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
 void setup() {
@@ -339,7 +339,7 @@ void setup() {
   circle c4(25,25,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c4);
 
-  circle c(15,10,0,get_rand_color(),MAX_LEVEL);
+  circle c(13,13,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c);
 }
 circle * it;
@@ -352,10 +352,10 @@ void update_watchdog() {
   interrupts()
 }
 
-unsigned long TIME_TO_DO_DAY_DREAMING = 4000;
-
 unsigned long TIME_TO_RESET_BUTTON = 1500;
 unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
+
+unsigned long TIME_TO_DO_DAY_DREAMING = 240000; //~1 minute (ratio of 1:4)
 
 //----------------------------
 //  LOOP
@@ -396,15 +396,17 @@ void loop() {
 }
 
 
-int DAY_DREAM_DELAY = 5;
-int MOVE_XY = 200;
+int DAY_DREAM_DELAY = 50;
+int MOVE_XY = 100;
 int xy_counter = 0;
 //----------------------------
 //  run_vector
 //----------------------------
 void run_vector() {
    for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
+    xy_counter++;
         if (its_day_dream) {
+          delay(DAY_DREAM_DELAY);
           if (it->get_radius() >= MAX_RADIUS) {
             it->set_size_dir(-1);
             it->advance_radius(it->get_size_dir()*increaseRadiusSize);
