@@ -95,6 +95,7 @@ void FindButtonPressed (int x_start, int y_start, int reg,int &x, int &y);
 long get_rand_color();
 void read_mcp_block(int status_reg,int first_x, int first_y);
 void read_mcp(int mcp_num ) ;
+void run_day_dream();
 //
 
 Adafruit_MCP23017 mcp[NUM_OF_MCP];
@@ -106,6 +107,7 @@ class circle
   int y;
   int color;
   int level;  
+  int size_dir; // if the cirle is geting bigger or smaller (1,-1)
   //int length_of_pixel_array = MAX_RADIUS*16;
   // --------------------------
   // set_pixel_level
@@ -145,14 +147,15 @@ class circle
     radius+= add;
     //Serial.println(radius);
   }
-  void set_x_y(int x, int y) {x = x; y = y;}
+  void set_x_y(int _x, int _y) {x = _x; y = _y;}
   float get_radius() {/*Serial.print("radius ");Serial.println(radius);*/return radius;}
-  //int get_x() {return center_x;}
-  //int get_y() {return center_y;}
-  //int get_color() {return color;}
-  //int get_level() {return level;}
+  int get_x() {return x;}
+  int get_y() {return y;}
+  int get_color() {return color;}
+  int get_level() {return level;}
   void advance_color (int jump) { color = (color +jump)%NUM_OF_COLORS;}
-  
+  int get_size_dir() {return size_dir;}
+  void set_size_dir(int dir) {size_dir = dir;}
   
 
   void draw_shape() {
@@ -200,6 +203,7 @@ class circle
     radius = start_radius;    
     color = shape_color;
     level = color_level;
+    size_dir = 1;
   }
   
 };
@@ -239,7 +243,10 @@ class c_vector
     if (current_i == v_end) { return NULL;}
     return &c_vec[current_i];
   }
- 
+  void clear_vector() {
+    v_start = 0;
+    v_end = 0;    
+  }
   c_vector () {
     v_start = 0;
     v_end = 0;        
@@ -259,9 +266,9 @@ void init_watchdog() {
   WDOG_TOVALH = 0;
   WDOG_PRESC = 0; // This sets prescale clock so that the watchdog timer ticks at 1kHZ instead of the default 1kHZ/4 = 200 HZ
 }
-
-int ideal_time;
-int last_button_pressed_time;
+unsigned long  last_button_pressed_time;
+unsigned long  ideal_time;
+int its_day_dream;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
 void setup() {
@@ -297,10 +304,11 @@ void setup() {
       Serial.print("Init pin");
       Serial.println(pin);
     }
-    mcp[i].readGPIOAB();    // Resets MCP Interrupt
-    ideal_time = 0;
-    last_button_pressed_time = 0;
+    mcp[i].readGPIOAB();    // Resets MCP Interrupt    
   } 
+  ideal_time = 0;
+  last_button_pressed_time = 0;
+  its_day_dream=0;
   clearAll(); 
   pixels.show();
   
@@ -336,9 +344,11 @@ void update_watchdog() {
   interrupts()
 }
 
-unsigned long TIME_TO_DO_DAY_DREAMING = 5000;
+unsigned long TIME_TO_DO_DAY_DREAMING = 1000;
+
 unsigned long TIME_TO_RESET_BUTTON = 1500;
 unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
+
 //----------------------------
 //  LOOP
 //----------------------------
@@ -350,33 +360,15 @@ void loop() {
 
   // the program is alive...for now. 
   update_watchdog();
-  
-  //for (vector<circle>::iterator it = circle_vec.begin(); it != circle_vec.end(); ++ it) {
-  for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
-        if ( it ->get_radius() < MAX_RADIUS) {
-        it->draw_shape();
-        it->advance_radius(increaseRadiusSize);
-        float r = it ->get_radius();
-        int round_radius = (int)(100*r)%100;
-       // Serial.print("r "); Serial.print(r);Serial.print(" (int)r "); Serial.print((int)r);Serial.print(" round radius ");Serial.println(round_radius);
-        
-        if (round_radius == 99 || round_radius == 1 || round_radius == 0 ) { 
-          //Serial.println("color change");    
-          it->advance_color(COLOR_JUMP); // when the radius advanced in int value, adbvance the color
-        }
-    //    Serial.println(it->get_radius());    
-  
-      } else {   
-         circle_vec.pop();      
-        //it = circle_vec.erase(it);          
-      // it->advance_radius(-MAX_RADIUS);
-      }
-      
-      
-    }
-    pixels.show();     
-    
 
+  //Day dreaming
+  if(millis() - last_button_pressed_time > TIME_TO_DO_DAY_DREAMING) {            
+      run_day_dream();               
+      its_day_dream = 1;
+  }
+  
+  run_vector();
+    
     //Serial.println(millis() - ideal_time);
     if (millis() - ideal_time > TIME_TO_RESET_BUTTON) {
         // if there was no interrupt for 10 sec, maybe it got stuck so reseting
@@ -387,15 +379,87 @@ void loop() {
         ideal_time = millis();
         Serial.println("Reset after idle time");
     }
+    
+    pixels.show();    
 
     Serial.println(millis() - last_button_pressed_time);
-    if(millis() - last_button_pressed_time > TIME_TO_DO_DAY_DREAMING) {
-      Serial.println("Day dreaming");
-      
-    }
    
-    delay(DELAY);     
-    
+    delay(DELAY); 
+}
+
+//----------------------------
+//  run_vector
+//----------------------------
+void run_vector() {
+   for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
+        if (its_day_dream) {
+          if (it->get_radius() >= MAX_RADIUS) {
+            it->set_size_dir(-1);
+            it->advance_radius(it->get_size_dir()*increaseRadiusSize);
+          } else if (it->get_radius() <= 0) {
+            it->set_size_dir(1);
+            it->advance_radius(it->get_size_dir()*increaseRadiusSize);
+          }
+          // in day dream the circke will move randomaly 
+          int x = it -> get_x();
+          int y = it -> get_y();
+          int rand_x_min = -1; 
+          int rand_x_max = 1;
+          int rand_y_min = -1; 
+          int rand_y_max = 1;
+          if (x==0) {
+            rand_x_min = 0;                        
+          } else if (x==24) {
+            rand_x_max = 0;            
+          }
+          if (y==0) {
+            rand_y_min = 0;                        
+          } else if (y==24) {
+            rand_y_max = 0;            
+          }
+          Serial.print("radius_min max: ");    
+          Serial.println(rand_x_min);    
+          Serial.println(rand_x_max);              
+          x += random (rand_x_min,rand_x_max);
+          y += random (rand_y_min,rand_y_max);          
+          it->set_x_y(x,y);
+        } // end of if (its_day_dream)     
+        if ( it ->get_radius() < MAX_RADIUS) {
+          it->draw_shape();
+          
+          it->advance_radius(it->get_size_dir()*increaseRadiusSize);
+          float r = it ->get_radius();
+          int round_radius = (int)(100*r)%100;
+          // Serial.print("r "); Serial.print(r);Serial.print(" (int)r "); Serial.print((int)r);Serial.print(" round radius ");Serial.println(round_radius);
+        
+          if (round_radius == 99 || round_radius == 1 || round_radius == 0 ) { 
+            //Serial.println("color change");    
+            it->advance_color(COLOR_JUMP); // when the radius advanced in int value, adbvance the color
+          }          
+          Serial.print("radius: ");    
+          Serial.print(it->get_radius());    
+          Serial.print(" x: ");    
+          Serial.print(it -> get_x());    
+          Serial.print(" y: ");    
+          Serial.println(it -> get_y());    
+  
+       } else {   
+         circle_vec.pop();              
+       }   
+      
+    }  
+}
+//----------------------------
+//  day_dream
+//----------------------------
+void run_day_dream() {  
+  if (its_day_dream ) {return;}
+  Serial.println("Day dreaming");
+  int x = random(0,24);
+  int y = random(0,24);
+  circle c(x,y,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c);           
+  
 }
 
 //----------------------------
@@ -407,10 +471,15 @@ void handleKeypress() {
   detachInterrupt(PinInt2);
   detachInterrupt(PinInt3);
   
+  last_button_pressed_time = millis();
+  if (its_day_dream) {
+    // we are exiting day_dream, need to clear the vector
+    circle_vec.clear_vector();    
+  }
   //delay(100); // for rebounce of interrupt - TODO - test this
   
  // int x = random(0,4);
-//  int y = random(0,24);     
+ // int y = random(0,24);     
     
   // Get more information from the MCP from the INT
   //uint8_t pin=mcp.getLastInterruptPin();
