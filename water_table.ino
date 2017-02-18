@@ -256,6 +256,7 @@ class c_vector
 // ---------------------------------------------
 volatile int interrupt_flag=0;
 
+int easterEggMaskArray[4]; // This will be set for each easteregg corner
 
 void init_watchdog() {
   WDOG_UNLOCK = WDOG_UNLOCK_SEQ1;
@@ -269,6 +270,7 @@ void init_watchdog() {
 unsigned long  last_button_pressed_time;
 unsigned long  ideal_time;
 int its_day_dream;
+int its_easter_egg;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
 void setup() {
@@ -309,6 +311,7 @@ void setup() {
   ideal_time = 0;
   last_button_pressed_time = 0;
   its_day_dream=0;
+  its_easter_egg=0;
   clearAll(); 
   pixels.show();
   
@@ -321,6 +324,9 @@ void setup() {
   attachInterrupt(PinInt3, OnInterupt, FALLING); 
   Serial.println("reset");
 
+  for(int i=0;i<4;i++) {
+    easterEggMaskArray[i] = 0;
+  }
   // Create initialize circles
   circle c1(0,0,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c1);
@@ -344,7 +350,7 @@ void update_watchdog() {
   interrupts()
 }
 
-unsigned long TIME_TO_DO_DAY_DREAMING = 1000;
+unsigned long TIME_TO_DO_DAY_DREAMING = 4000;
 
 unsigned long TIME_TO_RESET_BUTTON = 1500;
 unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
@@ -369,20 +375,21 @@ void loop() {
   
   run_vector();
     
-    //Serial.println(millis() - ideal_time);
-    if (millis() - ideal_time > TIME_TO_RESET_BUTTON) {
-        // if there was no interrupt for 10 sec, maybe it got stuck so reseting
-        //_reboot_Teensyduino_();
-        for(int i=0;i<NUM_OF_MCP;i++) {
-          mcp[i].readGPIOAB();
-        }
-        ideal_time = millis();
-        Serial.println("Reset after idle time");
-    }
+  //Serial.println(millis() - ideal_time);
+  if (millis() - ideal_time > TIME_TO_RESET_BUTTON) {
+      // if there was no interrupt for 10 sec, maybe it got stuck so reseting
+      //_reboot_Teensyduino_();
+      for(int i=0;i<NUM_OF_MCP;i++) {
+        mcp[i].readGPIOAB();
+      }
+      ideal_time = millis();
+      Serial.println("Reset after idle time");
+  }
+  
     
     pixels.show();    
 
-    Serial.println(millis() - last_button_pressed_time);
+    //Serial.println(millis() - last_button_pressed_time);
    
     delay(DELAY); 
 }
@@ -392,7 +399,7 @@ void loop() {
 //----------------------------
 void run_vector() {
    for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
-        if (its_day_dream) {
+        if (its_day_dream ) {
           if (it->get_radius() >= MAX_RADIUS) {
             it->set_size_dir(-1);
             it->advance_radius(it->get_size_dir()*increaseRadiusSize);
@@ -424,6 +431,7 @@ void run_vector() {
           y += random (rand_y_min,rand_y_max);          
           it->set_x_y(x,y);
         } // end of if (its_day_dream)     
+        
         if ( it ->get_radius() < MAX_RADIUS) {
           it->draw_shape();
           
@@ -436,12 +444,12 @@ void run_vector() {
             //Serial.println("color change");    
             it->advance_color(COLOR_JUMP); // when the radius advanced in int value, adbvance the color
           }          
-          Serial.print("radius: ");    
-          Serial.print(it->get_radius());    
-          Serial.print(" x: ");    
-          Serial.print(it -> get_x());    
-          Serial.print(" y: ");    
-          Serial.println(it -> get_y());    
+//          Serial.print("radius: ");    
+//          Serial.print(it->get_radius());    
+//          Serial.print(" x: ");    
+//          Serial.print(it -> get_x());    
+//          Serial.print(" y: ");    
+//          Serial.println(it -> get_y());    
   
        } else {   
          circle_vec.pop();              
@@ -473,6 +481,7 @@ void handleKeypress() {
   
   last_button_pressed_time = millis();
   if (its_day_dream) {
+    its_day_dream = 0;its_day_dream = 0;
     // we are exiting day_dream, need to clear the vector
     circle_vec.clear_vector();    
   }
@@ -518,7 +527,6 @@ void read_mcp_block(int status_reg,int first_x, int first_y) {
   Serial.print("status_reg "); 
   Serial.println(status_reg);   
   FindButtonPressed (first_x,first_y,status_reg,x,y);
-  CheckEasterEgg(x,y);
   Serial.print("x y "); 
   Serial.print(x); 
   Serial.print(" "); 
@@ -526,6 +534,7 @@ void read_mcp_block(int status_reg,int first_x, int first_y) {
   if (x != -1) {
     circle c(x,y,0,get_rand_color(),MAX_LEVEL);
     circle_vec.push_back(c);
+    CheckEasterEgg(x,y);
   }
 }
 //----------------------------
@@ -543,14 +552,14 @@ void read_mcp(int mcp_num ) {
   block_num = mcp_block_map[mcp_num][0];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block 1"); 
+  //Serial.println("about to read mcp block 1"); 
   read_mcp_block(pin_status,first_x,first_y);
 
   pin_status = status_reg >> 4; //Reading 4 top pins (MSB)
   block_num = mcp_block_map[mcp_num][1];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block 2"); 
+  //Serial.println("about to read mcp block 2"); 
   read_mcp_block(pin_status,first_x,first_y);
 
   status_reg = ~(mcp[mcp_num].readGPIO(0));      
@@ -558,29 +567,73 @@ void read_mcp(int mcp_num ) {
   block_num = mcp_block_map[mcp_num][2];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block 3"); 
+  //Serial.println("about to read mcp block 3"); 
   read_mcp_block(pin_status,first_x,first_y);
 
   pin_status = status_reg >> 4;   //Reading 4 top pins (MSB)
   block_num = mcp_block_map[mcp_num][3];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
-  Serial.println("about to read mcp block 4"); 
+  //Serial.println("about to read mcp block 4"); 
   read_mcp_block(pin_status,first_x,first_y);   
   
 }
 
+#define EASTER_EGG_TIMEOUT 1000 //The min amount of time to press all 4 corners
 int easterEggPointer = 0;
-static const int easter_egg_button_xy[4][2] = {{0,0},{25,0},{0,25},{25,25}}; // All four corners x,y
+//static const int easter_egg_button_xy[4][2] = {{0,0},{0,25},{25,0},{25,25}}; // All four corners x,y
+static const int easter_egg_button_xy[4][2] = {{0,25},{2,19},{0,25},{0,25}}; // All four corners x,y FAKE FOR TESTING
+unsigned long easter_egg_time;
+
 void CheckEasterEgg(int x, int y) {
   Serial.println("Easter egg:");
   Serial.print(x);
   Serial.println(" ");
   Serial.print(y);
-  if(x == -1) { 
-    //clear
+
+  unsigned long millies = millis();
+
+  // Reset if timeout
+  if(millies - easter_egg_time > EASTER_EGG_TIMEOUT){
+    Serial.print("Clearing easteregg");
+    for(int i=0;i<4;i++) {
+      easterEggMaskArray[i] = 0; 
+    }
+  }
+  
+  //Check all 4 squares:
+  for(int i=0;i<4;i++) {
+    int easter_x = easter_egg_button_xy[i][0];
+    int easter_y = easter_egg_button_xy[i][1];
+    Serial.print("Easter x ");
+    Serial.println(easter_x);
+    Serial.print("Easter y ");
+    Serial.println(easter_y);
+    if (((x+5 >= easter_x) && (x-5 <= easter_x)) && 
+      ((y+5 >= easter_y) && (y-5 <= easter_y))) {
+        easterEggMaskArray[i] = 1;
+        Serial.print("Correct easteregg square");
+        easter_egg_time = millies;
+      }
+  }
+
+  // Got to the last part - either reset or win
+  bool is_all_lit = true;
+  for(int i=0;i<4;i++) {
+    if(easterEggMaskArray[i] != 1) {
+      is_all_lit = false;
+    }
+  }
+  
+  
+  if(is_all_lit) {
     easterEggPointer = 0;
-    return;
+    //its_easter_egg = 1;
+    Serial.println("Start Easter Egg!!!");
+    for(int i=0;i<random(5,10);i++) {
+      circle c(i,i,0,get_rand_color(),MAX_LEVEL);
+      circle_vec.push_back(c);
+    }
   }
 }
 
