@@ -434,6 +434,7 @@ void handleKeypress() {
   cli();
   interrupt_flag = 0;
   sei();
+  //The following fixes one button press from hanging - it needs to be after the interrupt_flag = 0; and sei() exactly where he is
   attachInterrupt(PinInt, OnInterupt, FALLING);
   attachInterrupt(PinInt2, OnInterupt, FALLING);
   Serial.println("handleKeypress Handled");
@@ -441,6 +442,7 @@ void handleKeypress() {
 }
 //----------------------------
 //  read_mcp_block
+//  status_reg - the 4 buttons
 //----------------------------
 void read_mcp_block(int status_reg,int first_x, int first_y) {
   int x,y;
@@ -467,14 +469,14 @@ void read_mcp(int mcp_num ) {
   int block_num,first_x,first_y;
 
   status_reg = ~(mcp[mcp_num].readGPIO(1));
-  pin_status = status_reg & 15; 
+  pin_status = status_reg & 15;  // Reading 4 bottom pins 00001111
   block_num = mcp_block_map[mcp_num][0];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
   Serial.println("about to read mcp block 1"); 
   read_mcp_block(pin_status,first_x,first_y);
 
-  pin_status = status_reg >> 4;
+  pin_status = status_reg >> 4; //Reading 4 top pins (MSB)
   block_num = mcp_block_map[mcp_num][1];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
@@ -482,16 +484,16 @@ void read_mcp(int mcp_num ) {
   read_mcp_block(pin_status,first_x,first_y);
 
   status_reg = ~(mcp[mcp_num].readGPIO(0));      
-  pin_status = status_reg & 15; 
+  pin_status = status_reg & 15;  // Reading 4 bottom pins 00001111
   block_num = mcp_block_map[mcp_num][2];
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
   Serial.println("about to read mcp block 3"); 
   read_mcp_block(pin_status,first_x,first_y);
 
-  pin_status = status_reg >> 4;   
+  pin_status = status_reg >> 4;   //Reading 4 top pins (MSB)
   block_num = mcp_block_map[mcp_num][3];
-  first_x = (block_num/5)*5;
+  first_x = (block_num/5)*5;d
   first_y = (block_num%5)*5;
   Serial.println("about to read mcp block 4"); 
   read_mcp_block(pin_status,first_x,first_y);   
@@ -529,24 +531,24 @@ long get_rand_color() {
 void FindButtonPressed (int x_start, int y_start, int reg,int &x, int &y) {   
   switch (reg) {
     case 0:
-     x=-1; y =-1;break;
-    case 1:
+     x=-1; y =-1;break; //No button was pressed
+    case 1: //First button pressed
       x=x_start+button_map[0][0]; y=y_start+button_map[0][1]; break;
-    case 2:
+    case 2: //Second button pressed
       x=x_start+button_map[1][0]; y=y_start+button_map[1][1]; break;
-    case 3:
+    case 3: //2 buttons pressed - 1+2 - Corner is pressed
       x=x_start+(button_map[0][0]+button_map[1][0])/2; y=y_start+(button_map[0][1]+button_map[1][1])/2; break;
-    case 4:
+    case 4: //Third button pressed
       x=x_start+button_map[2][0]; y=y_start+button_map[2][1]; break;    
-    case 6: // 
+    case 6: //2 buttons pressed - Corner is pressed
       x=x_start+(button_map[1][0]+button_map[2][0])/2; y=y_start+(button_map[1][1]+button_map[2][1])/2; break;    
-    case 8:
+    case 8: // Forth button pressed
       x=x_start+button_map[3][0]; y=y_start+button_map[3][1]; break;
-    case 9:
+    case 9: //2 buttons pressed - Corner is pressed
       x=x_start+(button_map[0][0]+button_map[3][0])/2; y=y_start+(button_map[0][1]+button_map[3][1])/2; break;    
-    case 12:
+    case 12: //2 buttons pressed - 2 buttons from both side - "Center" is pressed
       x=x_start+(button_map[2][0]+button_map[3][0])/2; y=y_start+(button_map[2][1]+button_map[3][1])/2; break;         
-    default:
+    default: //Either 3 buttons or 4 buttons - "Center" is pressed
       x=x_start+(button_map[0][0]+button_map[2][0])/2; y=y_start+(button_map[0][1]+button_map[2][1])/2; break;
   }  
 }
