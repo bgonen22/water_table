@@ -274,7 +274,7 @@ int its_easter_egg;
 //vector<circle> circle_vec;  
 c_vector circle_vec;
 void setup() {
-//  Wire.begin ();
+//  Wire.begin ()
   //delay(1500); //TODO: should remove it
   Serial.begin(9600);
   init_watchdog();
@@ -286,7 +286,7 @@ void setup() {
   Serial.print("Initing ");
   Serial.print(NUM_OF_MCP);
   Serial.println(" MCP");
-
+  
   for (int i = 0; i< NUM_OF_MCP; ++i) {     
     Serial.print("Init mcp ");
     Serial.println(i);
@@ -318,6 +318,7 @@ void setup() {
   pinMode(PinInt, INPUT_PULLUP);
   pinMode(PinInt2, INPUT_PULLUP);
   pinMode(PinInt3, INPUT_PULLUP);
+
   //TODO test this new method 
   attachInterrupt(PinInt, OnInterupt, FALLING); 
   attachInterrupt(PinInt2, OnInterupt, FALLING); 
@@ -327,6 +328,7 @@ void setup() {
   for(int i=0;i<4;i++) {
     easterEggMaskArray[i] = 0;
   }
+
   // Create initialize circles
   circle c1(0,0,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c1);
@@ -355,6 +357,8 @@ unsigned long TIME_TO_DO_DAY_DREAMING = 4000;
 unsigned long TIME_TO_RESET_BUTTON = 1500;
 unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
 
+float increaseRadiusSize = 0.1;
+
 //----------------------------
 //  LOOP
 //----------------------------
@@ -375,31 +379,31 @@ void loop() {
   
   run_vector();
     
-  //Serial.println(millis() - ideal_time);
-  if (millis() - ideal_time > TIME_TO_RESET_BUTTON) {
-      // if there was no interrupt for 10 sec, maybe it got stuck so reseting
-      //_reboot_Teensyduino_();
-      for(int i=0;i<NUM_OF_MCP;i++) {
-        mcp[i].readGPIOAB();
-      }
-      ideal_time = millis();
-      Serial.println("Reset after idle time");
-  }
-  
+
+    //Serial.println(millis() - ideal_time);
+    if (millis() - ideal_time > TIME_TO_RESET_BUTTON) {
+        // if there was no interrupt for 10 sec, maybe it got stuck so reseting
+        //_reboot_Teensyduino_();
+        for(int i=0;i<NUM_OF_MCP;i++) {
+          mcp[i].readGPIOAB();
+        }
+        ideal_time = millis();
+        Serial.println("Reset after idle time");
+    }
+
     
     pixels.show();    
-
-    //Serial.println(millis() - last_button_pressed_time);
-   
-    delay(DELAY); 
+    delay(DELAY);     
+    
 }
+
 
 //----------------------------
 //  run_vector
 //----------------------------
 void run_vector() {
    for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
-        if (its_day_dream ) {
+        if (its_day_dream) {
           if (it->get_radius() >= MAX_RADIUS) {
             it->set_size_dir(-1);
             it->advance_radius(it->get_size_dir()*increaseRadiusSize);
@@ -411,27 +415,28 @@ void run_vector() {
           int x = it -> get_x();
           int y = it -> get_y();
           int rand_x_min = -1; 
-          int rand_x_max = 1;
+          int rand_x_max = 2;
           int rand_y_min = -1; 
-          int rand_y_max = 1;
+          int rand_y_max = 2;
           if (x==0) {
             rand_x_min = 0;                        
           } else if (x==24) {
-            rand_x_max = 0;            
+            rand_x_max = 1;            
           }
           if (y==0) {
             rand_y_min = 0;                        
           } else if (y==24) {
             rand_y_max = 0;            
           }
-          Serial.print("radius_min max: ");    
-          Serial.println(rand_x_min);    
-          Serial.println(rand_x_max);              
+          //Serial.print("radius_min max: ");    
+          //Serial.println(x);    
+          //Serial.println(rand_x_min);    
+          //Serial.println(rand_x_max);              
+          //Serial.println(random (0,1));              
           x += random (rand_x_min,rand_x_max);
           y += random (rand_y_min,rand_y_max);          
           it->set_x_y(x,y);
         } // end of if (its_day_dream)     
-        
         if ( it ->get_radius() < MAX_RADIUS) {
           it->draw_shape();
           
@@ -444,12 +449,12 @@ void run_vector() {
             //Serial.println("color change");    
             it->advance_color(COLOR_JUMP); // when the radius advanced in int value, adbvance the color
           }          
-//          Serial.print("radius: ");    
-//          Serial.print(it->get_radius());    
-//          Serial.print(" x: ");    
-//          Serial.print(it -> get_x());    
-//          Serial.print(" y: ");    
-//          Serial.println(it -> get_y());    
+          //Serial.print("radius: ");    
+          //Serial.print(it->get_radius());    
+          //Serial.print(" x: ");    
+          //Serial.print(it -> get_x());    
+          //Serial.print(" y: ");    
+          //Serial.println(it -> get_y());    
   
        } else {   
          circle_vec.pop();              
@@ -457,14 +462,16 @@ void run_vector() {
       
     }  
 }
+
+
 //----------------------------
 //  day_dream
 //----------------------------
 void run_day_dream() {  
   if (its_day_dream ) {return;}
   Serial.println("Day dreaming");
-  int x = random(0,24);
-  int y = random(0,24);
+  int x = random(0,25);
+  int y = random(0,25);
   circle c(x,y,0,get_rand_color(),MAX_LEVEL);
   circle_vec.push_back(c);           
   
@@ -478,17 +485,16 @@ void handleKeypress() {
   detachInterrupt(PinInt);
   detachInterrupt(PinInt2);
   detachInterrupt(PinInt3);
-  
   last_button_pressed_time = millis();
   if (its_day_dream) {
-    its_day_dream = 0;its_day_dream = 0;
     // we are exiting day_dream, need to clear the vector
     circle_vec.clear_vector();    
-  }
+    its_day_dream = 0;
+  } 
   //delay(100); // for rebounce of interrupt - TODO - test this
   
  // int x = random(0,4);
- // int y = random(0,24);     
+//  int y = random(0,24);     
     
   // Get more information from the MCP from the INT
   //uint8_t pin=mcp.getLastInterruptPin();
@@ -510,7 +516,7 @@ void handleKeypress() {
   cli();
   interrupt_flag = 0;
   sei();
-  //The following fixes one button press from hanging - it needs to be after the interrupt_flag = 0; and sei() exactly where he is
+
   attachInterrupt(PinInt, OnInterupt, FALLING);
   attachInterrupt(PinInt2, OnInterupt, FALLING);
   attachInterrupt(PinInt3, OnInterupt, FALLING);
@@ -518,6 +524,7 @@ void handleKeypress() {
   ideal_time = millis();
   last_button_pressed_time = millis();
 }
+
 //----------------------------
 //  read_mcp_block
 //  status_reg - the 4 buttons
@@ -575,9 +582,11 @@ void read_mcp(int mcp_num ) {
   first_x = (block_num/5)*5;
   first_y = (block_num%5)*5;
   //Serial.println("about to read mcp block 4"); 
+
   read_mcp_block(pin_status,first_x,first_y);   
   
 }
+
 
 #define EASTER_EGG_TIMEOUT 1000 //The min amount of time to press all 4 corners
 int easterEggPointer = 0;
@@ -636,6 +645,7 @@ void CheckEasterEgg(int x, int y) {
     }
   }
 }
+
 
 //----------------------------
 //  get_rand_color
