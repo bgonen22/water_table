@@ -25,7 +25,7 @@
 #define COLOR_JUMP 1
 
 //the max radius of the circle
-#define MAX_RADIUS 3
+#define MAX_RADIUS 7
 
 // Max power level
 #define MAX_LEVEL 255
@@ -96,7 +96,6 @@ long get_rand_color();
 void read_mcp_block(int status_reg,int first_x, int first_y);
 void read_mcp(int mcp_num ) ;
 void run_day_dream();
-//
 
 Adafruit_MCP23017 mcp[NUM_OF_MCP];
 
@@ -270,12 +269,12 @@ void init_watchdog() {
 unsigned long  last_button_pressed_time;
 unsigned long  ideal_time;
 int its_day_dream;
-bool its_easter_egg;
-//vector<circle> circle_vec;  
+int its_easter_egg;  
 c_vector circle_vec;
+
 void setup() {
-//  Wire.begin ()
-  //delay(1500); //TODO: should remove it
+  //delay(1500); //Undo if you want to see debug messages of setup - this delay usually helps
+  //remember to undo it before going to production
   Serial.begin(9600);
   init_watchdog();
   Serial.println("Starting up...");
@@ -330,20 +329,19 @@ void setup() {
   }
 
   // Create initialize circles
-  circle c1(0,0,0,get_rand_color(),MAX_LEVEL);
-  circle_vec.push_back(c1);
-  circle c2(0,25,0,get_rand_color(),MAX_LEVEL);
-  circle_vec.push_back(c2);
-  circle c3(25,0,0,get_rand_color(),MAX_LEVEL);
-  circle_vec.push_back(c3);
-  circle c4(25,25,0,get_rand_color(),MAX_LEVEL);
-  circle_vec.push_back(c4);
-
-  circle c(15,10,0,get_rand_color(),MAX_LEVEL);
-  circle_vec.push_back(c);
+  pushCircle(0,0);
+  pushCircle(0,25);
+  pushCircle(25,0);
+  pushCircle(25,25);
+  
+  pushCircle(13,13);
 }
 circle * it;
 
+void pushCircle(int x, int y) {
+  circle c(x,y,0,get_rand_color(),MAX_LEVEL);
+  circle_vec.push_back(c);
+}
 
 void update_watchdog() {
   noInterrupts();
@@ -352,10 +350,11 @@ void update_watchdog() {
   interrupts()
 }
 
-unsigned long TIME_TO_DO_DAY_DREAMING = 4000;
-
 unsigned long TIME_TO_RESET_BUTTON = 1500;
-unsigned long lastIntrruptTime = 0; //Starting from -TIME_TO_WAIT_ON_STUCK_MODE-1 so it wont get called on first call
+unsigned long lastIntrruptTime = 0;
+
+unsigned long TIME_TO_DO_DAY_DREAMING = 14000; //~1 minute (ratio of 1:4)
+//unsigned long TIME_TO_DO_DAY_DREAMING = 2000; //TODO
 
 //----------------------------
 //  LOOP
@@ -371,7 +370,7 @@ void loop() {
 
   //Day dreaming
   if(millis() - last_button_pressed_time > TIME_TO_DO_DAY_DREAMING) {            
-      run_day_dream();               
+      run_day_dream();
       its_day_dream = 1;
   }
   
@@ -396,14 +395,18 @@ void loop() {
 }
 
 
-int DAY_DREAM_DELAY = 5;
-int MOVE_XY = 200;
+int DAY_DREAM_DELAY = 50;
+int MOVE_XY = 100;
 int xy_counter = 0;
 //----------------------------
 //  run_vector
 //----------------------------
 void run_vector() {
+   if (its_day_dream) {
+     delay(DAY_DREAM_DELAY);
+   }
    for (it = circle_vec.start(); it != NULL ; it = circle_vec.next()) {
+    xy_counter++;
         if (its_day_dream) {
           if (it->get_radius() >= MAX_RADIUS) {
             it->set_size_dir(-1);
@@ -482,11 +485,15 @@ void run_vector() {
 void run_day_dream() {  
   if (its_day_dream ) {return;}
   Serial.println("Day dreaming");
-  int x = random(0,25);
-  int y = random(0,25);
-  circle c(x,y,0,get_rand_color(),MAX_LEVEL);
-  circle_vec.push_back(c);           
-  
+  int num_of_circles = random(2,4);
+
+  //Divide the stage to 2,3,4 parts so initiallly the circles would each start in a quarter of the stage
+  for(int i=i;i<num_of_circles ;i++) {
+    int circleParts = MAP_SIZE/num_of_circles;
+    int x = random(i*circleParts,circleParts*(1+i));
+    int y = random(i*circleParts,circleParts*(1+i));
+    pushCircle(x,y);
+  }
 }
 
 //----------------------------
@@ -551,8 +558,7 @@ void read_mcp_block(int status_reg,int first_x, int first_y) {
   Serial.print(" "); 
   Serial.println(y);   
   if (x != -1) {
-    circle c(x,y,0,get_rand_color(),MAX_LEVEL);
-    circle_vec.push_back(c);
+    pushCircle(x,y);
     CheckEasterEgg(x,y);
   }
 }
@@ -661,8 +667,7 @@ void run_easter_egg() {
   for (int i = 0 ;i<4 ;++i) {    
       int x = easter_egg_button_xy[i][0];
       int y = easter_egg_button_xy[i][1];
-      circle c(x,y,0,get_rand_color(),MAX_LEVEL);
-      circle_vec.push_back(c);
+      pushCircle(x,y);
     }
 }
 
